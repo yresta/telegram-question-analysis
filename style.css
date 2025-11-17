@@ -1,0 +1,315 @@
+/* =======================================================================================
+   TEMA STREAMLIT - PALET WARNA KUSTOM
+   Champagne:   #F2E5D3 
+   Apricot:     #F6BC8C 
+   Marmalade:   #E07D45 
+   Terra Cotta: #B0522A 
+   Desert Rose: #A96255 
+   Cactus:      #6F927F 
+   ======================================================================================= */
+
+/* =======================================================================================
+   UMUM & KONTAINER UTAMA
+   ======================================================================================= */
+
+/* Latar belakang utama seluruh aplikasi */
+.stApp {
+    background-color: #FFFFFF; /* Putih bersih */
+}
+
+/* Membuat efek "kartu" pada setiap blok konten utama */
+div[data-testid="stVerticalBlock"] > div[style*="flex-direction: column"] {
+    background-color: #F2E5D3; /* Champagne */
+    border-radius: 12px;
+    padding: 25px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    margin-bottom: 20px;
+    border: 1px solid rgba(246, 188, 140, 0.3); /* Apricot yang sangat tipis */
+}
+
+/* Gaya untuk Judul Utama (st.title) */
+.stTitle {
+    color: #B0522A; /* Terra Cotta */
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+/* =======================================================================================
+   KOMPONEN INPUT (TEXT, DATE, SELECTBOX, CHECKBOX, RADIO)
+   ======================================================================================= */
+
+/* Base Styling untuk Semua Input */
+/* Menghapus wrapper default agar bisa dikustomisasi */
+div[data-baseweb="input"] {
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* Styling utama untuk field input (text, number, selectbox) */
+div[data-baseweb="input"] > div,
+div[data-baseweb="select"] > div {
+    background-color: #FFFFFF !important;
+    border: 2px solid #F6BC8C !important; /* Apricot */
+    border-radius: 20px !important;
+    padding: 0.6rem 1.2rem !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.04) !important;
+    transition: all 0.3s ease !important;
+    font-size: 16px;
+}
+
+/* Styling Khusus untuk Date Input */
+/* Container untuk date input agar responsif dan berjarak */
+div[data-baseweb="form-control"] {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    gap: 15px; 
+}
+
+input[type="date"] {
+    flex: 1;
+    min-width: 180px;
+    max-width: 300px;
+    text-align: center;
+    box-sizing: border-box;
+    background-color: #FFFFFF !important;
+    border: 2px solid #F6BC8C !important; /* Apricot */
+    border-radius: 20px !important;
+    padding: 0.6rem 1.2rem !important;
+    font-size: 16px;
+}
+
+/* State Fokus & Validasi */
+/* Menghilangkan outline merah default saat input tidak valid */
+input:invalid {
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+/* Styling saat input difokuskan (diklik/diketik) */
+div[data-baseweb="input"] > div:focus-within,
+input[type="date"]:focus,
+div[data-baseweb="select"]:focus-within {
+    outline: none !important;
+    border-color: #E07D45 !important; /* Marmalade */
+    box-shadow: 0 0 0 4px rgba(224, 125, 69, 0.15) !important; /* Bayangan Marmalade */
+}
+
+/* Styling Checkbox & Radio */
+div[data-testid="stCheckbox"] label div[role="checkbox"] {
+    background-color: #FFFFFF;
+    border-color: #F6BC8C; /* Apricot */
+    border-radius: 4px;
+}
+
+div[data-testid="stCheckbox"] label div[role="checkbox"][aria-checked="true"] {
+    background-color: #E07D45; /* Marmalade */
+    border-color: #E07D45;
+}
+
+div[data-testid="stRadio"] label div[role="radio"] {
+    background-color: #FFFFFF;
+    border-color: #F6BC8C; /* Apricot */
+}
+
+div[data-testid="stRadio"] label div[role="radio"][aria-checked="true"] {
+    border-color: #E07D45; /* Marmalade */
+}
+
+div[data-testid="stRadio"] label div[role="radio"][aria-checked="true"]::after {
+    background-color: #E07D45; /* Marmalade */
+}
+
+/* =======================================================================================
+   KOMPONEN TOMBOL
+   ======================================================================================= */
+
+/* Tombol Aksi Utama (st.button) */
+div.stButton > button:first-child {
+    background-color: #E07D45; /* Marmalade */
+    color: white;
+    border: none;
+    border-radius: 25px;
+    padding: 0.7em 2em;
+    font-weight: 600;
+    font-size: 16px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 8px rgba(176, 82, 42, 0.2);
+    width: 100%;
+}
+
+div.stButton > button:first-child:hover {
+    background-color: #B0522A; /* Terra Cotta */
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(176, 82, 42, 0.3);
+}
+
+/* Tombol Download (st.download_button) */
+.stDownloadButton > button {
+    background-color: #6F927F; /* Cactus */
+    color: white;
+    border: none;
+    border-radius: 20px;
+    padding: 0.6em 1.5em;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.stDownloadButton > button:hover {
+    background-color: #5A7666; /* Cactus yang lebih gelap */
+    transform: scale(1.03);
+}
+
+/* =======================================================================================
+   KOMPONEN TABEL (DATAFRAME & AGGRID)
+   ======================================================================================= */
+
+/* Streamlit Dataframe */
+div[data-testid="stDataFrame"] {
+    border: 1px solid #F0F2F6; 
+    border-radius: 8px;
+    overflow: hidden;
+    background-color: #FFFFFF;
+}
+
+div[data-testid="stDataFrame"] th {
+    background-color: #A96255; /* Desert Rose */
+    color: white;
+    font-weight: 600;
+    text-align: left;
+}
+
+div[data-testid="stDataFrame"] td {
+    border-bottom: 1px solid #F2E5D3; /* Champagne */
+}
+
+div[data-testid="stDataFrame"] tr:nth-child(even) {
+    background-color: #FAF6F2; /* Champagne sangat muda */
+}
+
+/* AgGrid */
+.ag-theme-streamlit {
+    border: 1px solid #F6BC8C; /* Apricot */
+    border-radius: 8px;
+    background-color: #FFFFFF;
+}
+
+.ag-theme-streamlit .ag-header {
+    background-color: #A96255; /* Desert Rose */
+    color: white;
+    font-weight: 600;
+    border-bottom: 2px solid #F6BC8C;
+}
+
+.ag-theme-streamlit .ag-row {
+    color: #333333;
+}
+
+.ag-theme-streamlit .ag-row-even {
+    background-color: #FAF6F2; /* Champagne sangat muda */
+}
+
+.ag-theme-streamlit .ag-row:hover {
+    background-color: #F6BC8C; /* Apricot */
+}
+
+/* =======================================================================================
+   KOMPONEN TAB NAVIGASI
+   ======================================================================================= */
+
+/* Garis highlight di bawah tab yang aktif */
+div[data-baseweb="tab-highlight"] {
+    background-color: #E07D45 !important; /* Marmalade */
+    border: none !important;
+    height: 3px !important;
+    border-radius: 0px !important;
+}
+
+/* Container list tab */
+div[data-baseweb="tab-list"] {
+    background-color: transparent;
+    border-bottom: 2px solid #F6BC8C; /* Garis bawah Apricot */
+    display: flex;
+    justify-content: space-between; /* Bagi rata tab */
+}
+
+/* Biar button tab punya lebar sama rata */
+.stTabs [data-baseweb="tab-list"] button {
+    flex: 1;  /* Isi ruang yang ada sama rata */
+    text-align: center;
+    border: none;
+}
+
+/* Hilangkan underline default bawah teks tab */
+.stTabs [data-baseweb="tab-list"] button:after {
+    display: none !important;
+}
+
+/* Gaya untuk teks tab yang sedang aktif */
+.stTabs [data-baseweb="tab-list"] button[aria-selected="true"] strong {
+    font-size: 18px !important;
+    font-weight: 700 !important;
+    color: #B0522A !important; /* Terra Cotta */
+}
+
+/* Gaya untuk teks tab yang tidak aktif */
+.stTabs [data-baseweb="tab-list"] button[aria-selected="false"] strong {
+    font-size: 16px !important;
+    font-weight: 500 !important;
+    color: #F6BC8C !important; /* Apricot */
+}
+
+/* =======================================================================================
+   KOMPONEN LAINNYA (SIDEBAR, ALERT, EXPANDER, PROGRESS)
+   ======================================================================================= */
+
+/* Sidebar */
+/* PERINGATAN: Selector .css-... bisa berubah sewaktu-waktu oleh Streamlit */
+.css-1d391kg {
+    background-color: #F2E5D3; /* Champagne */
+}
+
+.css-1d391kg .css-17eq0hr {
+    color: #B0522A; /* Terra Cotta */
+}
+
+/* Alert & Info Box */
+div[data-testid="stAlert"] {
+    border-radius: 8px;
+    border-left: 5px solid #E07D45; /* Marmalade */
+}
+
+div[data-testid="stAlert"][data-baseweb="alert"] {
+    background-color: #FAF6F2; /* Champagne sangat muda */
+}
+
+div[data-testid="stAlert"][data-baseweb="toast"] {
+    background-color: #E07D45; /* Marmalade */
+    color: white;
+}
+
+/* Expander */
+.streamlit-expanderHeader {
+    background-color: #F6BC8C; /* Apricot */
+    border-radius: 8px;
+    color: #B0522A; /* Terra Cotta */
+    font-weight: 600;
+}
+
+/* Progress Bar */
+/* Latar/track progress bar */
+div[data-testid="stProgress"] > div > div > div {
+    background-color: #F6BC8C; /* Apricot */
+    border-radius: 10px;
+}
+
+/* Isian progress bar */
+div[data-testid="stProgressBar"] > div > div > div > div {
+    background-color: #E07D45 !important; /* Marmalade */
+    border-radius: 10px;
+}
