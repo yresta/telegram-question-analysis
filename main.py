@@ -36,7 +36,7 @@ load_css("style.css")
 # KONFIGURASI
 api_id = int(st.secrets["API_ID"])
 api_hash = st.secrets["API_HASH"]
-session_name = st.secrets["SESSION_NAME"]
+session_name = "new_session"
 wib = ZoneInfo("Asia/Jakarta")
 
 # Load model
@@ -693,3 +693,4 @@ if st.button("Mulai Proses dan Analisis"):
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
             )
+
