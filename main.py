@@ -34,9 +34,9 @@ def load_css(file_name):
 load_css("style.css")
 
 # KONFIGURASI
-api_id = int(st.secret["API_ID"])
-api_hash = st.secret["API_HASH"]
-session_name = st.secret["SESSION_NAME"]
+api_id = int(st.secrets["API_ID"])
+api_hash = st.secrets["API_HASH"]
+session_name = st.secrets["SESSION_NAME"]
 wib = ZoneInfo("Asia/Jakarta")
 
 # Load model
@@ -691,4 +691,5 @@ if st.button("Mulai Proses dan Analisis"):
                 data=output,
                 file_name=f"hasil_representatif_variasi_{datetime.now(wib).strftime('%Y-%m-%d')}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
             )
