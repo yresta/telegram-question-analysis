@@ -10,3 +10,4 @@ nest_asyncio
 python-dateutil
 tzdata
 streamlit-aggrid
+openpyxl
