@@ -1,0 +1,12 @@
+streamlit
+pandas
+numpy
+scikit-learn
+nltk
+sentence-transformers
+requests
+telethon
+nest_asyncio
+st-aggrid
+python-dateutil
+tzdata
