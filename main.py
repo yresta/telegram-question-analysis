@@ -648,8 +648,7 @@ if st.button("Mulai Proses dan Analisis"):
                 variations = find_question_variations(questions_in_topic, min_variation_size=3)
         
                 for j, variation_questions in enumerate(variations):
-                    # Panggil fungsi sinkron langsung
-                    representative_sentence = generate_representative_sync(variation_questions)
+                    representative_sentence = generate_representative(variation_questions)
                     
                     final_results.append({
                         "Topik Utama": topik,
@@ -705,3 +704,4 @@ if st.button("Mulai Proses dan Analisis"):
                 file_name=f"hasil_representatif_variasi_{datetime.now(wib).strftime('%Y-%m-%d')}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
+
