@@ -555,7 +555,7 @@ def find_question_variations(questions: List[str], min_variation_size: int = 3) 
         
     return filtered_variations
     
-async def generate_representative_async(session, questions: List[str]) -> str:
+async def generate_representative(session, questions: List[str]) -> str:
     """Versi async dari generate_representative untuk dipanggil secara paralel."""
     if not questions:
         return ""
@@ -781,3 +781,4 @@ if __name__ == '__main__':
     print("\n=== Setelah Merge Similar Topics ===")
 
     print(df_merged['final_topic'].value_counts())
+
