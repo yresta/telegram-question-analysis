@@ -4,6 +4,7 @@ from telethon.tl.functions.messages import GetHistoryRequest
 from datetime import datetime, timedelta, time
 from zoneinfo import ZoneInfo
 import pandas as pd
+import aiohttp
 import asyncio
 import nest_asyncio
 import re
@@ -721,5 +722,6 @@ if st.button("Mulai Proses dan Analisis"):
                 file_name=f"hasil_representatif_variasi_{datetime.now(wib).strftime('%Y-%m-%d')}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
+
 
 
