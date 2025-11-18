@@ -22,7 +22,8 @@ from heredacode import (
     merge_similar_topics,
     find_optimal_clusters,
     find_question_variations,
-    generate_representative
+    generate_representative,
+    smart_embedding_fallback
 )
 
 nest_asyncio.apply()
@@ -634,7 +635,7 @@ if st.button("Mulai Proses dan Analisis"):
                 semaphore = asyncio.Semaphore(5) 
                 async def bounded_generate_representative(session, variation_questions):
                     async with semaphore: # Tunggu giliran, lalu kirim permintaan
-                        return await generate_representative_async(session, variation_questions)
+                        return await generate_representative(session, variation_questions)
             
                 async with aiohttp.ClientSession() as session:
                     tasks = []
@@ -722,6 +723,7 @@ if st.button("Mulai Proses dan Analisis"):
                 file_name=f"hasil_representatif_variasi_{datetime.now(wib).strftime('%Y-%m-%d')}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
+
 
 
 
