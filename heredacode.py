@@ -50,12 +50,23 @@ def get_sentence_embeddings(texts: List[str], model=None, model_name: str = DEFA
         return np.zeros((0, 384))
     if model is None:
         model = get_sentence_model(model_name)
-    return np.asarray(model.encode(
-        texts,
-        show_progress_bar=False,
-        batch_size=EMBEDDING_BATCH_SIZE,
-        normalize_embeddings=True
-    ))
+
+    all_embeddings = []
+    batch_size = 64 
+
+    for i in range(0, len(texts), batch_size):
+        batch_texts = texts[i:i + batch_size]
+        batch_embeddings = model.encode(
+            batch_texts,
+            show_progress_bar=False,
+            batch_size=batch_size,
+            normalize_embeddings=True
+        )
+        all_embeddings.append(batch_embeddings)
+        import gc
+        gc.collect()
+
+    return np.vstack(all_embeddings)
 
 # Spelling correction
 def load_spelling_corrections(path: str) -> Dict[str, str]:
@@ -561,7 +572,7 @@ async def generate_representative(session, questions: List[str]) -> str:
 
     # Hanya hapus yang sangat spesifik (PO, ID panjang),tanpa hapus kata kunci
     cleaned_questions = []
-    for q in questions[]: 
+    for q in questions[:3]: 
         q_clean = q.lower()
         # Hanya hapus pola yang jelas-jelas ID
         q_clean = re.sub(r'\bpo[a-z0-9]{8,}\b', '[nomor pesanan]', q_clean)
@@ -749,6 +760,7 @@ if __name__ == '__main__':
     print("\n=== Setelah Merge Similar Topics ===")
 
     print(df_merged['final_topic'].value_counts())
+
 
 
 
