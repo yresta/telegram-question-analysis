@@ -11,4 +11,3 @@ python-dateutil
 tzdata
 streamlit-aggrid
 openpyxl
-aiohttp
