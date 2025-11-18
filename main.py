@@ -625,6 +625,7 @@ if st.button("Mulai Proses dan Analisis"):
         
             st.markdown("Sistem akan memecah setiap topik menjadi **beberapa variasi pertanyaan**, lalu membuat **kalimat tanya formal** untuk setiap variasi tersebut.")
         
+            all_topics = df_questions_with_topics["final_topic"].unique().tolist()
             progress_bar = st.progress(0)
             progress_text = st.empty()
             
@@ -720,4 +721,5 @@ if st.button("Mulai Proses dan Analisis"):
                 file_name=f"hasil_representatif_variasi_{datetime.now(wib).strftime('%Y-%m-%d')}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
+
 
