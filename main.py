@@ -40,7 +40,7 @@ session_name = "new_session"
 wib = ZoneInfo("Asia/Jakarta")
 
 # Load model
-sentence_model = get_sentence_model()
+# sentence_model = get_sentence_model()
 
 # Load spelling corrections
 spelling = load_spelling_corrections('kata_baku.csv')
@@ -552,6 +552,10 @@ if st.button("Mulai Proses dan Analisis"):
     end_dt = datetime.combine(end_date_scrape, datetime.max.time()).replace(tzinfo=wib)
     df_all = asyncio.run(scrape_messages(group, start_dt, end_dt))
 
+    with st.spinner("Memuat model..."):
+        sentence_model = get_sentence_model()
+    st.success("Model berhasil dimuat!")
+
     if df_all is not None and not df_all.empty:
         df_all = df_all.sort_values('date').reset_index(drop=True)
         df_all['text'] = df_all['text'].str.lower()
@@ -716,3 +720,4 @@ if st.button("Mulai Proses dan Analisis"):
                 file_name=f"hasil_representatif_variasi_{datetime.now(wib).strftime('%Y-%m-%d')}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
+
