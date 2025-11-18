@@ -614,54 +614,78 @@ if st.button("Mulai Proses dan Analisis"):
 
         with tab3:
             st.subheader("Pertanyaan Representatif per Variasi Topik")
-
+        
             if df_questions_with_topics is None or df_questions_with_topics.empty:
                 st.warning("Belum ada hasil analisis topik untuk dibuat representatifnya.")
                 st.stop()
-
+        
             st.markdown("Sistem akan memecah setiap topik menjadi **beberapa variasi pertanyaan**, lalu membuat **kalimat tanya formal** untuk setiap variasi tersebut.")
-
+        
             progress_bar = st.progress(0)
             progress_text = st.empty()
             
-            final_results = []
-            all_topics = df_questions_with_topics["final_topic"].unique().tolist()
+            async def process_all_topics_async(all_topics, df_questions_with_topics):
+                semaphore = asyncio.Semaphore(5) 
+                async def bounded_generate_representative(session, variation_questions):
+                    async with semaphore: # Tunggu giliran, lalu kirim permintaan
+                        return await generate_representative_async(session, variation_questions)
+            
+                async with aiohttp.ClientSession() as session:
+                    tasks = []
+                    task_metadata = []
+                    for i, topik in enumerate(all_topics):
+                        progress_text.text(f"Menyiapkan task untuk topik {i+1}/{len(all_topics)}: {topik}")
+                        
+                        questions_in_topic = df_questions_with_topics[
+                            df_questions_with_topics["final_topic"] == topik
+                        ]["text"].tolist()
+            
+                        if not questions_in_topic:
+                            continue
+            
+                        variations = find_question_variations(questions_in_topic, min_variation_size=3)
+                        for j, variation_questions in enumerate(variations):
+                            task = asyncio.create_task(bounded_generate_representative(session, variation_questions))
+                            tasks.append(task)
+                            task_metadata.append({
+                                "Topik Utama": topik,
+                                "Jumlah Pertanyaan di Variasi": len(variation_questions),
+                                "Pertanyaan Asli": variation_questions
+                            })
+            
+                    # Jalankan semua task secara paralel
+                    progress_text.text("Menjalankan semua permintaan ke AI secara paralel...")
+                    results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+                    # Gabungkan hasil dengan metadata
+                    final_results = []
+                    for i, res in enumerate(results):
+                        if isinstance(res, Exception):
+                            print(f"Error pada topik {task_metadata[i]['Topik Utama']}: {res}")
+                            representative_sentence = smart_embedding_fallback(task_metadata[i]['Pertanyaan Asli'])
+                        else:
+                            representative_sentence = res
+                        
+                        final_results.append({
+                            **task_metadata[i],
+                            "Kalimat Representatif (AI)": representative_sentence
+                        })
+                    
+                    return final_results
 
-            for i, topik in enumerate(all_topics):
-                progress_text.text(f"Memproses topik {i+1}/{len(all_topics)}: {topik}")
-                
-                questions_in_topic = df_questions_with_topics[
-                    df_questions_with_topics["final_topic"] == topik
-                ]["text"].tolist()
-
-                if not questions_in_topic:
-                    continue
-
-                variations = find_question_variations(questions_in_topic, min_variation_size=3)
-
-                for j, variation_questions in enumerate(variations):
-                    representative_sentence = generate_representative(variation_questions)
-
-                    final_results.append({
-                        "Topik Utama": topik,
-                        "Kalimat Representatif (AI)": representative_sentence, 
-                        "Jumlah Pertanyaan di Variasi": len(variation_questions),
-                        "Pertanyaan Asli": variation_questions 
-                    })
-
-                progress_bar.progress((i + 1) / len(all_topics))
-
+            final_results = asyncio.run(process_all_topics_async(all_topics, df_questions_with_topics))
+            
             progress_bar.empty()
             progress_text.empty()
-
+        
             if not final_results:
                 st.info("Tidak ada variasi pertanyaan yang cukup signifikan untuk dianalisis.")
                 st.stop()
-
+            
             # Kelompokkan berdasarkan topik utama
             df_results = pd.DataFrame(final_results)
             grouped = df_results.groupby("Topik Utama")
-
+        
             for topik_name, group_df in grouped:
                 with st.expander(f"{topik_name}", expanded=False):
                     for _, row in group_df.iterrows():
@@ -678,19 +702,17 @@ if st.button("Mulai Proses dan Analisis"):
                         with st.expander("Lihat pertanyaan asli yang menjadi dasar kalimat ini"):
                             for q in row['Pertanyaan Asli']:
                                 st.markdown(f"- {q.strip()}")
-
+                    
             # Tombol Download
             output = io.BytesIO()
             df_download = df_results.drop(columns=['Pertanyaan Asli'])
             with pd.ExcelWriter(output, engine='openpyxl') as writer:
                 df_download.to_excel(writer, sheet_name='Representatif', index=False)
             output.seek(0)
-
+        
             st.download_button(
                 label="📥 Download Hasil Representatif (Excel)",
                 data=output,
                 file_name=f"hasil_representatif_variasi_{datetime.now(wib).strftime('%Y-%m-%d')}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-
             )
-
