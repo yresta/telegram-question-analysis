@@ -4,7 +4,6 @@ from telethon.tl.functions.messages import GetHistoryRequest
 from datetime import datetime, timedelta, time
 from zoneinfo import ZoneInfo
 import pandas as pd
-import aiohttp
 import asyncio
 import nest_asyncio
 import re
@@ -22,8 +21,7 @@ from heredacode import (
     merge_similar_topics,
     find_optimal_clusters,
     find_question_variations,
-    generate_representative,
-    smart_embedding_fallback
+    generate_representative
 )
 
 nest_asyncio.apply()
@@ -38,11 +36,12 @@ load_css("style.css")
 # KONFIGURASI
 api_id = int(st.secrets["API_ID"])
 api_hash = st.secrets["API_HASH"]
+session_name = st.secrets["SESSION_NAME"]
 session_name = "new_session"
 wib = ZoneInfo("Asia/Jakarta")
 
 # Load model
-# sentence_model = get_sentence_model()
+sentence_model = get_sentence_model()
 
 # Load spelling corrections
 spelling = load_spelling_corrections('kata_baku.csv')
@@ -311,7 +310,7 @@ topik_keywords = {
         ["batalin", "order"],
         ["cancel"]
     ],
-    
+
     # Topik dengan logika "ATAU" (salah satu kata cukup)
     "Pembayaran Dana": ["transfer", "dana masuk", "pengembalian", "bayar", "pembayaran", "dana", "dibayar", "notif pembayaran", "transaksi", "expired"],
     "Pengiriman Barang": ["pengiriman", "barang rusak", "kapan dikirim", "status pengiriman", "diproses"],
@@ -345,7 +344,7 @@ def is_question_like(text: str) -> bool:
     """Deteksi apakah teks valid pertanyaan dengan filter ketat."""
     if pd.isna(text) or not isinstance(text, str):
         return False
-    
+
     text_lower = text.strip().lower()
     if not text_lower:
         return False
@@ -376,7 +375,7 @@ def is_question_like(text: str) -> bool:
             return True
         else:
             return False
-        
+
     question_phrases = [
         "ada yang tahu", "mau tanya", "izin bertanya", "boleh tanya",
         "butuh bantuan", "ada solusi", "minta saran", "rekomendasi",
@@ -554,10 +553,6 @@ if st.button("Mulai Proses dan Analisis"):
     end_dt = datetime.combine(end_date_scrape, datetime.max.time()).replace(tzinfo=wib)
     df_all = asyncio.run(scrape_messages(group, start_dt, end_dt))
 
-    with st.spinner("Memuat model..."):
-        sentence_model = get_sentence_model()
-    st.success("Model berhasil dimuat!")
-
     if df_all is not None and not df_all.empty:
         df_all = df_all.sort_values('date').reset_index(drop=True)
         df_all['text'] = df_all['text'].str.lower()
@@ -620,111 +615,82 @@ if st.button("Mulai Proses dan Analisis"):
 
         with tab3:
             st.subheader("Pertanyaan Representatif per Variasi Topik")
-            
+
             if df_questions_with_topics is None or df_questions_with_topics.empty:
                 st.warning("Belum ada hasil analisis topik untuk dibuat representatifnya.")
                 st.stop()
-            
+
             st.markdown("Sistem akan memecah setiap topik menjadi **beberapa variasi pertanyaan**, lalu membuat **kalimat tanya formal** untuk setiap variasi tersebut.")
-            st.info("⚠️ Proses ini berjalan secara satu per satu (bukan paralel) dan mungkin memakan waktu beberapa menit.")
-            
-            min_variation_size = st.slider("Minimum jumlah pertanyaan per variasi:", 2, 10, 3)
-            use_smart_fallback = st.checkbox("Gunakan fallback cerdas jika hasil AI tidak memuaskan", value=True)
-            all_topics = df_questions_with_topics["final_topic"].unique().tolist()
-            
+
             progress_bar = st.progress(0)
             progress_text = st.empty()
-            
+
             final_results = []
+            all_topics = df_questions_with_topics["final_topic"].unique().tolist()
+
             for i, topik in enumerate(all_topics):
                 progress_text.text(f"Memproses topik {i+1}/{len(all_topics)}: {topik}")
-                
+
                 questions_in_topic = df_questions_with_topics[
                     df_questions_with_topics["final_topic"] == topik
                 ]["text"].tolist()
-            
+
                 if not questions_in_topic:
                     continue
-            
-                variations = find_question_variations(questions_in_topic, min_variation_size=min_variation_size)
-            
+
+                variations = find_question_variations(questions_in_topic, min_variation_size=3)
+
                 for j, variation_questions in enumerate(variations):
                     representative_sentence = generate_representative(variation_questions)
-                    
-                    quality_score = 0
-                    try:
-                        rep_embedding = sentence_model.encode(representative_sentence, convert_to_tensor=True)
-                        questions_embeddings = sentence_model.encode(variation_questions, convert_to_tensor=True)
-                        centroid = questions_embeddings.mean(dim=0)
-                        quality_score = util.cos_sim(rep_embedding, centroid).item()
-                    except Exception as e:
-                        print(f"Error calculating quality score: {e}")
-                    
-                    # Tambahkan indikator kualitas
-                    quality_indicator = "🟢" if quality_score >= 0.75 else "🟡" if quality_score >= 0.6 else "🔴"
-                    
+
                     final_results.append({
                         "Topik Utama": topik,
                         "Kalimat Representatif (AI)": representative_sentence, 
                         "Jumlah Pertanyaan di Variasi": len(variation_questions),
-                        "Skor Kualitas": f"{quality_score:.2f}",
-                        "Indikator": quality_indicator,
                         "Pertanyaan Asli": variation_questions 
                     })
 
-                progress = (i + 1) / len(all_topics)
-                progress_bar.progress(progress)
-            
+                progress_bar.progress((i + 1) / len(all_topics))
+
             progress_bar.empty()
             progress_text.empty()
-            
+
             if not final_results:
                 st.info("Tidak ada variasi pertanyaan yang cukup signifikan untuk dianalisis.")
                 st.stop()
 
+            # Kelompokkan berdasarkan topik utama
             df_results = pd.DataFrame(final_results)
+            grouped = df_results.groupby("Topik Utama")
 
-            st.subheader("Penyaring Hasil")
-            min_quality = st.slider("Minimum skor kualitas:", 0.0, 1.0, 0.6, 0.05)
-            filtered_results = df_results[df_results["Skor Kualitas"].astype(float) >= min_quality]
-            
-            st.write(f"Menampilkan {len(filtered_results)} dari {len(df_results)} hasil yang memenuhi kriteria kualitas.")
-            
-            grouped = filtered_results.groupby("Topik Utama")
-            
             for topik_name, group_df in grouped:
                 with st.expander(f"{topik_name}", expanded=False):
                     for _, row in group_df.iterrows():
-                        # Tambahkan indikator kualitas
-                        quality_color = "green" if row["Indikator"] == "🟢" else "orange" if row["Indikator"] == "🟡" else "red"
-                        
                         st.markdown(
                             f"""
                             <div style="padding: 10px; border-left: 4px solid #E0935A; background-color: #f9f9f9; margin-bottom: 10px; border-radius: 5px;">
                                 <strong>Kalimat Representatif:</strong> {row['Kalimat Representatif (AI)']} 
                                 <span style="color: grey; font-size: 0.9em;">({row['Jumlah Pertanyaan di Variasi']} pertanyaan)</span>
-                                <div style="margin-top: 5px;">
-                                    <span style="color: {quality_color}; font-weight: bold;">{row['Indikator']} Skor Kualitas: {row['Skor Kualitas']}</span>
-                                </div>
                             </div>
                             """,
                             unsafe_allow_html=True
                         )
-                        
+
                         with st.expander("Lihat pertanyaan asli yang menjadi dasar kalimat ini"):
                             for q in row['Pertanyaan Asli']:
                                 st.markdown(f"- {q.strip()}")
-            
+
             # Tombol Download
             output = io.BytesIO()
-            df_download = filtered_results.drop(columns=['Pertanyaan Asli'])
+            df_download = df_results.drop(columns=['Pertanyaan Asli'])
             with pd.ExcelWriter(output, engine='openpyxl') as writer:
                 df_download.to_excel(writer, sheet_name='Representatif', index=False)
             output.seek(0)
-            
+
             st.download_button(
                 label="📥 Download Hasil Representatif (Excel)",
                 data=output,
                 file_name=f"hasil_representatif_variasi_{datetime.now(wib).strftime('%Y-%m-%d')}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
             )
