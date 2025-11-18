@@ -43,7 +43,7 @@ FOCUS_KEYWORDS = {
 # Sentence model (cached globally)
 @lru_cache(maxsize=1)
 def get_sentence_model(model_name: str = DEFAULT_MODEL_NAME):
-    return SentenceTransformer(model_name)
+    return SentenceTransformer(model_name, device='cpu')
 
 def get_sentence_embeddings(texts: List[str], model=None, model_name: str = DEFAULT_MODEL_NAME) -> np.ndarray:
     if not texts:
@@ -781,4 +781,5 @@ if __name__ == '__main__':
     print("\n=== Setelah Merge Similar Topics ===")
 
     print(df_merged['final_topic'].value_counts())
+
 
