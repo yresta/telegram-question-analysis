@@ -13,6 +13,8 @@ from sentence_transformers import SentenceTransformer, util
 from sklearn.metrics.pairwise import cosine_similarity
 import nltk
 from typing import Callable, Optional, List
+import aiohttp
+import asyncio
 
 # Setup NLTK
 nltk.download('punkt', quiet=True)
@@ -552,21 +554,18 @@ def find_question_variations(questions: List[str], min_variation_size: int = 3) 
         return [questions]
         
     return filtered_variations
-
-def generate_representative(questions: List[str]) -> str:
+    
+async def generate_representative_async(session, questions: List[str]) -> str:
+    """Versi async dari generate_representative untuk dipanggil secara paralel."""
     if not questions:
         return ""
 
     API_URL = "https://cloudiessky-Phi-4-mini-instruct-model.hf.space/api/predict"
     
-    headers = {"Content-Type": "application/json"}
-
+    # --- Salin semua logika preprocessing dari fungsi asli ---
     sample_questions = questions[:3]
-    
-    # Preprocessing untuk menghilangkan informasi sensitif
     cleaned_questions = []
     for q in sample_questions:
-        # Hapus nomor PO, ID transaksi, dll.
         q_clean = re.sub(r'\bpo[a-z0-9]+\b', '[nomor pesanan]', q.lower())
         q_clean = re.sub(r'\b[a-z0-9]{8,}\b', '[ID]', q_clean)
         q_clean = re.sub(r'\b(kalimantan timur|jakarta|surabaya|dll)\b', '[lokasi]', q_clean)
@@ -576,23 +575,44 @@ def generate_representative(questions: List[str]) -> str:
         cleaned_questions.append(q_clean.strip())
 
     prompt = f"""
-ANDA ADALAH SEORANG ANALIS LAYANAN PELANGGAN. TUGAS ANDA ADALAH MERINGKAS SEKUMPULAN PERTANYAAN PENGGUNA MENJADI SATU KALIMAT TANYA FORMAL YANG MENCERMIKAN INTI MASALAH.
+ANDA ADALAH SEORANG ANALIS DATA PERTANYAAN PELANGGAN. TUGAS ANDA ADALAH MERINGKAS SEKUMPULAN PERTANYAAN MENJADI SATU KALIMAT TANYA FORMAL YANG MENCERMIKAN INTI MASALAH YANG PALING SERING MUNCUL.
 
 ATURAN PENTING:
-1. HASILKAN HANYA SATU KALIMAT TANYA YANG JELAS DAN RINGKAS
-2. JANGAN GABUNGKAN BEBERAPA PERTANYAAN DENGAN KATA "DAN" ATAU "ATAU"
-3. HINDARI MENYERTAKAN INFORMASI SPESIFIK SEPERTI NOMOR PO, ID, LOKASI, ATAU NAMA
-4. FOKUS PADA MASALAH UMUM YANG DIHADAPI PENGGUNA
-5. GUNAKAN BAHASA FORMAL YANG MUDAH DIPAHAMI
+1. Fokus pada KATA KERJA (verifikasi, mengubah, menanyakan, mengatasi) dan OBJEK UTAMA (dana, akun, pembayaran, status).
+2. Jika pertanyaan sangat beragam, buatlah kalimat yang mencakup MASALAH UMUM yang paling relevan, BUKAN kalimat generik seperti "Bagaimana cara mengatasi kendala?".
+3. JANGAN menggabungkan beberapa topik yang tidak berhubungan dengan kata "dan" atau "atau".
+4. JANGAN membuat asumsi atau menambahkan informasi yang tidak ada (seperti lokasi, nama, atau ID spesifik).
+5. HASILKAN HANYA SATU KALIMAT TANYA YANG JELAS, RINGKAS, DAN FORMAL.
 
-CONTOH:
+CONTOH KASUS:
 ---
 Pertanyaan Pengguna:
-- "admin solusinya bagaimana?"
-- "min ini maksudnya bagaimana ya?"
+- "min cara merubah tampilan toko ladang yg baru ke tampilan lama gimana?"
+- "di sipks nama penyedia anvis jaya belum ada. jadi tidak bisa entri spj."
+- "ohya.. mau tanya lagi . apakah ada aplikasi by android ya?"
 
 Kalimat Tanya Representatif:
-Bagaimana cara mengatasi kendala yang sedang terjadi?
+Bagaimana cara mengubah tampilan atau mengakses fitur tertentu di aplikasi TokoLadang?
+---
+
+---
+Pertanyaan Pengguna:
+- "mau tanya dong suhu"
+- "teman teman mau tanya apakah disini ada yg sudah pernah di tanya tanya oleh bpkd?"
+- "mau tanya.."
+
+Kalimat Tanya Representatif:
+Apa saja topik atau informasi yang sedang dibahas dalam forum ini?
+---
+
+---
+Pertanyaan Pengguna:
+- "solusi bagi yg punya proforma invoice bagaimana ya terkait pelaporannya nanti?"
+- "kl beda bank biaya admindnya berapa ya?"
+- "permisi admin mau bertanya, ini saya baru aja coba fitur notif wa dan sudah berfungsi dengan baik, tapi tadi saya liat sebelum ngirim otp dikenakan biaya, dan di sini minus saldo. untuk biaya saldonya diambil darimana ya?"
+
+Kalimat Tanya Representatif:
+Berapa biaya administrasi untuk transaksi dengan bank berbeda dan bagaimana mekanisme pemotongan saldo untuk fitur notifikasi WhatsApp?
 ---
 
 SEKARANG, BUAT SATU KALIMAT TANYA FORMAL UNTUK PERTANYAAN-PERTANYAAN BERIKUT:
@@ -612,59 +632,51 @@ Kalimat Tanya Representatif:
     }
 
     try:
-        response = requests.post(API_URL, headers=headers, json=payload)
-        response.raise_for_status()
-        result = response.json()
-        representative_sentence = result["response"].strip()
+        async with session.post(API_URL, json=payload) as response:
+            response.raise_for_status()
+            result = await response.json()
+            representative_sentence = result["response"].strip()
+            
+            # --- Salin semua logika post-processing dari fungsi asli ---
+            prefixes_to_remove = ["Kalimat Tanya Representatif:", "Representatif:", "Jawaban:", "Answer:", "Pertanyaan:", "Contoh:"]
+            for pref in prefixes_to_remove:
+                if representative_sentence.lower().startswith(pref.lower()):
+                    representative_sentence = representative_sentence[len(pref):].strip()
+            
+            representative_sentence = re.sub(r'\?[\s\-]*\?+$', '?', representative_sentence)
+            representative_sentence = re.sub(r'^[\d\.\-\*\s"]+', '', representative_sentence).strip()
+            representative_sentence = re.sub(r'\b(terima\s+kasih|mohon\s+maaf|tolong|info)\b', '', representative_sentence, flags=re.IGNORECASE)
+            
+            if '?' in representative_sentence:
+                parts = representative_sentence.split('?')
+                if len(parts) > 1:
+                    representative_sentence = parts[0] + '?'
 
-        prefixes_to_remove = ["Kalimat Tanya Representatif:", "Representatif:", "Jawaban:", "Answer:", "Pertanyaan:", "Contoh:"]
-        for pref in prefixes_to_remove:
-            if representative_sentence.lower().startswith(pref.lower()):
-                representative_sentence = representative_sentence[len(pref):].strip()
+            representative_sentence = re.sub(r'\s+', ' ', representative_sentence).strip()
+            rep = representative_sentence.lower().strip()
+            rep = re.sub(r'\bapakah cara\b', '', rep).strip()
+            rep = re.sub(r'\b(bagaimana cara\s+)+', 'bagaimana cara ', rep).strip()
+            
+            if "cara" in representative_sentence.lower():
+                if not representative_sentence.lower().startswith("bagaimana cara"):
+                    representative_sentence = re.sub(r'^(bagaimana|gimana|gmna|gmn|mengapa|kenapa)\s+', '', representative_sentence, flags=re.IGNORECASE).strip()
+                    representative_sentence = "Bagaimana cara " + representative_sentence
 
-        representative_sentence = re.sub(r'\?[\s\-]*\?+$', '?', representative_sentence)
-        representative_sentence = re.sub(r'^[\d\.\-\*\s"]+', '', representative_sentence).strip()
-        representative_sentence = re.sub(r'\b(terima\s+kasih|mohon\s+maaf|tolong|info)\b', '', representative_sentence, flags=re.IGNORECASE)
-        
-        # Pastikan hanya ada satu kalimat pertanyaan
-        if '?' in representative_sentence:
-            parts = representative_sentence.split('?')
-            if len(parts) > 1:
-                representative_sentence = parts[0] + '?'
+            if representative_sentence:
+                representative_sentence = representative_sentence[0].upper() + representative_sentence[1:]
 
-        representative_sentence = re.sub(r'\s+', ' ', representative_sentence).strip()
-        rep = representative_sentence.lower().strip()
-        rep = re.sub(r'\bapakah cara\b', '', rep).strip()
-        rep = re.sub(r'\b(bagaimana cara\s+)+', 'bagaimana cara ', rep).strip()
-        
-        # Logika tambahan: jika terdapat kata "cara", maka awalannya harus "Bagaimana cara"
-        if "cara" in representative_sentence.lower():
-            if not representative_sentence.lower().startswith("bagaimana cara"):
-                representative_sentence = re.sub(
-                    r'^(bagaimana|gimana|gmna|gmn|mengapa|kenapa)\s+', 
-                    '', 
-                    representative_sentence, 
-                    flags=re.IGNORECASE
-                ).strip()
-                representative_sentence = "Bagaimana cara " + representative_sentence
-
-        if representative_sentence:
-            representative_sentence = representative_sentence[0].upper() + representative_sentence[1:]
-
-        if not representative_sentence.endswith('?'):
-            representative_sentence += '?'
-        
-        # Jika hasil AI masih jelek, gunakan fallback cerdas
-        if len(representative_sentence) < 15 or "contoh" in representative_sentence.lower() or "pertanyaan" in representative_sentence.lower():
-            print("Hasil AI tidak memuaskan, menggunakan fallback cerdas...")
-            return smart_embedding_fallback(questions)
-        
-        return representative_sentence
+            if not representative_sentence.endswith('?'):
+                representative_sentence += '?'
+            
+            if len(representative_sentence) < 15 or "contoh" in representative_sentence.lower() or "pertanyaan" in representative_sentence.lower():
+                return smart_embedding_fallback(questions)
+            
+            return representative_sentence
 
     except Exception as e:
-        print(f"Error during API call: {e}. Menggunakan fallback cerdas.")
+        print(f"Error during async API call: {e}. Menggunakan fallback.")
         return smart_embedding_fallback(questions)
-
+        
 def smart_embedding_fallback(questions: List[str]) -> str:
     if not questions:
         return ""
@@ -767,4 +779,5 @@ if __name__ == '__main__':
 
     df_merged = merge_similar_topics(df_result, use_embeddings=True)
     print("\n=== Setelah Merge Similar Topics ===")
+
     print(df_merged['final_topic'].value_counts())
