@@ -574,18 +574,37 @@ if st.button("Mulai Proses dan Analisis"):
 
         with tab1:
             st.subheader(f"Ditemukan {len(df_questions)} Pesan Pertanyaan")
-        
+
             if not df_questions.empty:
                 df_show = df_questions[['date', 'sender_name', 'text']]
 
-                st.dataframe(
+                gb = GridOptionsBuilder.from_dataframe(df_show)
+
+                # Skala 1:1:3
+                gb.configure_column("date", header_name="Tanggal", flex=1, resizable=False, suppressMovable=True)
+                gb.configure_column("sender_name", header_name="Pengirim", flex=1, wrapText=True, autoHeight=True, resizable=False, suppressMovable=True)
+                gb.configure_column("text", header_name="Pertanyaan", flex=3, wrapText=True, autoHeight=True, resizable=False, suppressMovable=True)
+
+                grid_options = gb.build()
+
+                AgGrid(
                     df_show,
-                    use_container_width=True,
-                    column_config={
-                        "date": st.column_config.TextColumn("Tanggal", width="small"),
-                        "sender_name": st.column_config.TextColumn("Pengirim", width="medium"),
-                        "text": st.column_config.TextColumn("Pertanyaan", width="large"),
-                    }
+                    gridOptions=grid_options,
+                    height=500,
+                    fit_columns_on_grid_load=True,   
+                    enable_enterprise_modules=False,
+                    allow_unsafe_jscode=True,
+                    theme="streamlit",
+                    reload_data=True,
+                    custom_css={
+                        ".ag-root-wrapper": {"width": "100% !important"},
+                        ".ag-theme-streamlit": {
+                            "width": "100% !important",
+                            "overflow": "hidden !important",  
+                        },
+                    },
+                    update_mode="MODEL_CHANGED",
+                    suppressHorizontalScroll=True,   
                 )
             else:
                 st.info("Tidak ada pesan yang terdeteksi sebagai pertanyaan pada periode ini.")
@@ -674,6 +693,7 @@ if st.button("Mulai Proses dan Analisis"):
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
             )
+
 
 
 
