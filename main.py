@@ -577,27 +577,29 @@ if st.button("Mulai Proses dan Analisis"):
         
             if not df_questions.empty:
                 df_show = df_questions[['date', 'sender_name', 'text']]
-        
-                # CSS supaya teks bisa wrap
+
                 st.markdown("""
                 <style>
-                /* Wrap text in dataframe cells */
-                [data-testid="stDataFrame"] div[role="gridcell"] {
+                textarea {
+                    white-space: normal !important;
+                }
+                [data-testid="stDataEditor"] div[role="gridcell"] {
                     white-space: normal !important;
                     word-wrap: break-word !important;
-                    overflow-wrap: break-word !important;
+                    line-height: 1.2rem !important;
                 }
                 </style>
                 """, unsafe_allow_html=True)
-
-                st.dataframe(
+        
+                st.data_editor(
                     df_show,
                     use_container_width=True,
                     column_config={
                         "date": st.column_config.TextColumn("Tanggal", width="small"),
                         "sender_name": st.column_config.TextColumn("Pengirim", width="medium"),
-                        "text": st.column_config.TextColumn("Pertanyaan", width="large"),
-                    }
+                        "text": st.column_config.TextColumn("Pertanyaan", width="large",
+                    },
+                    hide_index=False,
                 )
         
             else:
@@ -687,6 +689,7 @@ if st.button("Mulai Proses dan Analisis"):
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
             )
+
 
 
 
