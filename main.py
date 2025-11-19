@@ -597,7 +597,7 @@ if st.button("Mulai Proses dan Analisis"):
                     column_config={
                         "date": st.column_config.TextColumn("Tanggal", width="small"),
                         "sender_name": st.column_config.TextColumn("Pengirim", width="medium"),
-                        "text": st.column_config.TextColumn("Pertanyaan", width="large",
+                        "text": st.column_config.TextColumn("Pertanyaan", width="large")
                     },
                     hide_index=False,
                 )
