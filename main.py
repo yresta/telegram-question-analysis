@@ -581,13 +581,15 @@ if st.button("Mulai Proses dan Analisis"):
                 # CSS supaya teks bisa wrap
                 st.markdown("""
                 <style>
-                [data-testid="dataframe"] td {
+                /* Wrap text in dataframe cells */
+                [data-testid="stDataFrame"] div[role="gridcell"] {
                     white-space: normal !important;
+                    word-wrap: break-word !important;
+                    overflow-wrap: break-word !important;
                 }
                 </style>
                 """, unsafe_allow_html=True)
-        
-                # Tabel rapi
+
                 st.dataframe(
                     df_show,
                     use_container_width=True,
@@ -685,6 +687,7 @@ if st.button("Mulai Proses dan Analisis"):
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
             )
+
 
 
 
