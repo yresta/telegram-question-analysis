@@ -577,29 +577,41 @@ if st.button("Mulai Proses dan Analisis"):
         
             if not df_questions.empty:
                 df_show = df_questions[['date', 'sender_name', 'text']]
-        
+
+                st.markdown("""
+                <style>
+                [data-testid="stDataEditor"] div[role="gridcell"] {
+                    white-space: normal !important;
+                    word-wrap: break-word !important;
+                    line-height: 1.2rem !important;
+                }
+                
+                /* agar kolom text tidak melebar */
+                [data-testid="stDataEditor"] div[role="gridcell"]:nth-child(3) {
+                    max-width: 400px !important;
+                }
+                </style>
+                """, unsafe_allow_html=True)
+
                 st.data_editor(
-                    df_show,
-                    use_container_width=True,
-                    column_config={
-                        "date": st.column_config.TextColumn(
-                            "Tanggal",
-                            width="small",
-                            wrap_text=True
-                        ),
-                        "sender_name": st.column_config.TextColumn(
-                            "Pengirim",
-                            width="medium",
-                            wrap_text=True
-                        ),
-                        "text": st.column_config.TextColumn(
-                            "Pertanyaan",
-                            width="large",
-                            wrap_text=True   # ← WAJIB untuk multi-line
-                        ),
-                    },
-                    hide_index=False,
-                )
+                df_show,
+                use_container_width=True,
+                column_config={
+                    "date": st.column_config.TextColumn(
+                        "Tanggal",
+                        width="small",
+                    ),
+                    "sender_name": st.column_config.TextColumn(
+                        "Pengirim",
+                        width="medium",
+                    ),
+                    "text": st.column_config.TextColumn(
+                        "Pertanyaan",
+                        width="large",
+                    ),
+                },
+                hide_index=False,
+            )
             else:
                 st.info("Tidak ada pesan yang terdeteksi sebagai pertanyaan pada periode ini.")
 
@@ -687,6 +699,7 @@ if st.button("Mulai Proses dan Analisis"):
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
             )
+
 
 
 
