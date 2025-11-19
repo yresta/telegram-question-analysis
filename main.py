@@ -8,7 +8,7 @@ import asyncio
 import nest_asyncio
 import re
 from collections import Counter
-from st_aggrid import AgGrid, GridOptionsBuilder
+# from st_aggrid import AgGrid, GridOptionsBuilder
 import io
 
 from heredacode import (
@@ -578,34 +578,36 @@ if st.button("Mulai Proses dan Analisis"):
             if not df_questions.empty:
                 df_show = df_questions[['date', 'sender_name', 'text']]
 
-                gb = GridOptionsBuilder.from_dataframe(df_show)
+                # gb = GridOptionsBuilder.from_dataframe(df_show)
 
-                # Skala 1:1:3
-                gb.configure_column("date", header_name="Tanggal", flex=1, minWidth=120, resizable=False, suppressMovable=True)
-                gb.configure_column("sender_name", header_name="Pengirim", flex=1, wrapText=True, autoHeight=True, minWidth=150, resizable=False, suppressMovable=True)
-                gb.configure_column("text", header_name="Pertanyaan", flex=3, wrapText=True, autoHeight=True, minWidth=300, resizable=False, suppressMovable=True)
+                # # Skala 1:1:3
+                # gb.configure_column("date", header_name="Tanggal", flex=1, minWidth=120, resizable=False, suppressMovable=True)
+                # gb.configure_column("sender_name", header_name="Pengirim", flex=1, wrapText=True, autoHeight=True, minWidth=150, resizable=False, suppressMovable=True)
+                # gb.configure_column("text", header_name="Pertanyaan", flex=3, wrapText=True, autoHeight=True, minWidth=300, resizable=False, suppressMovable=True)
 
-                grid_options = gb.build()
+                # grid_options = gb.build()
 
-                AgGrid(
-                    df_show,
-                    gridOptions=grid_options,
-                    height=500,
-                    fit_columns_on_grid_load=True,   
-                    enable_enterprise_modules=False,
-                    allow_unsafe_jscode=True,
-                    theme="streamlit",
-                    reload_data=True,
-                    custom_css={
-                        ".ag-root-wrapper": {"width": "100% !important"},
-                        ".ag-theme-streamlit": {
-                            "width": "100% !important",
-                            "overflow": "hidden !important",  
-                        },
-                    },
-                    update_mode="MODEL_CHANGED",
-                    suppressHorizontalScroll=True,   
-                )
+                # AgGrid(
+                #     df_show,
+                #     gridOptions=grid_options,
+                #     height=500,
+                #     fit_columns_on_grid_load=True,   
+                #     enable_enterprise_modules=False,
+                #     allow_unsafe_jscode=True,
+                #     theme="streamlit",
+                #     reload_data=True,
+                #     custom_css={
+                #         ".ag-root-wrapper": {"width": "100% !important"},
+                #         ".ag-theme-streamlit": {
+                #             "width": "100% !important",
+                #             "overflow": "hidden !important",  
+                #         },
+                #     },
+                #     update_mode="MODEL_CHANGED",
+                #     suppressHorizontalScroll=True,   
+                # )
+                st.dataframe(df_show, width=True)
+            
             else:
                 st.info("Tidak ada pesan yang terdeteksi sebagai pertanyaan pada periode ini.")
 
@@ -693,4 +695,5 @@ if st.button("Mulai Proses dan Analisis"):
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
             )
+
 
