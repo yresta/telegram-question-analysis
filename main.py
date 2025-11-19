@@ -8,7 +8,7 @@ import asyncio
 import nest_asyncio
 import re
 from collections import Counter
-# from st_aggrid import AgGrid, GridOptionsBuilder
+from st_aggrid import AgGrid, GridOptionsBuilder
 import io
 
 from heredacode import (
@@ -693,6 +693,7 @@ if st.button("Mulai Proses dan Analisis"):
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
             )
+
 
 
 
