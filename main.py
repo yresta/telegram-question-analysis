@@ -730,147 +730,141 @@ if st.button("Mulai Proses dan Analisis"):
         st.stop()
     start_dt = datetime.combine(start_date_scrape, datetime.min.time()).replace(tzinfo=wib)
     end_dt = datetime.combine(end_date_scrape, datetime.max.time()).replace(tzinfo=wib)
-    df_all = asyncio.run(scrape_messages(group, start_dt, end_dt))
+    temp_filename, question_count = asyncio.run(scrape_messages(group, start_dt, end_dt))
 
-    if df_all is not None and not df_all.empty:
-        df_all = df_all.sort_values('date').reset_index(drop=True)
-        df_all['text'] = df_all['text'].str.lower()
-        df_all['text'] = df_all['text'].str.replace(r'http\S+|www\.\S+', '', regex=True)
-        df_all = df_all[df_all['text'].str.strip() != '']
-        df_all.drop_duplicates(subset=['sender_id', 'text', 'date'], keep='first', inplace=True)
-        df_all = df_all[~df_all['sender_name'].isin(['CS TokoLadang', 'Eko | TokLa', 'Vava'])]
-
-        df_all['is_question'] = df_all['text'].apply(is_question_like)
-        df_questions = df_all[df_all['is_question']].copy()
-
-        # --- Load spelling corrections ---
-        spelling = load_spelling_corrections("kata_baku.csv")   
-        apply_spelling = build_spelling_pattern(spelling)      
-        # --- Preprocessing dengan spelling ---
-        df_questions['processed_text'] = df_questions['text'].apply(lambda x: clean_text_for_clustering(x, apply_spelling))
-        df_questions = df_questions[~df_questions['processed_text'].apply(is_unimportant_sentence)]
-
-        tab1, tab2, tab3 = st.tabs(["**Daftar Pertanyaan**", "**Analisis Topik**", "**Pertanyaan Representatif**"])
-
-        with tab1:
-            st.subheader(f"Ditemukan {len(df_questions)} Pesan Pertanyaan")
-
-            if not df_questions.empty:
-                df_show = df_questions[['date', 'sender_name', 'text']]
-
-                gb = GridOptionsBuilder.from_dataframe(df_show)
-
-                # Skala 1:1:3
-                gb.configure_column("date", header_name="Tanggal", flex=1, resizable=False, suppressMovable=True)
-                gb.configure_column("sender_name", header_name="Pengirim", flex=1, wrapText=True, autoHeight=True, resizable=False, suppressMovable=True)
-                gb.configure_column("text", header_name="Pertanyaan", flex=3, wrapText=True, autoHeight=True, resizable=False, suppressMovable=True)
-
-                grid_options = gb.build()
-
-                AgGrid(
-                    df_show,
-                    gridOptions=grid_options,
-                    height=500,
-                    fit_columns_on_grid_load=True,   
-                    enable_enterprise_modules=False,
-                    allow_unsafe_jscode=True,
-                    theme="streamlit",
-                    reload_data=True,
-                    custom_css={
-                        ".ag-root-wrapper": {"width": "100% !important"},
-                        ".ag-theme-streamlit": {
-                            "width": "100% !important",
-                            "overflow": "hidden !important",  
+    if temp_filename and question_count > 0:
+        df_questions = pd.read_parquet(temp_filename)
+        
+        os.unlink(temp_filename)
+        
+        if not df_questions.empty:
+            df_questions = df_questions.reset_index(drop=True)
+    
+            spelling = load_spelling_corrections("kata_baku.csv")   
+            apply_spelling = build_spelling_pattern(spelling)
+            
+            df_questions['processed_text'] = df_questions['text'].apply(lambda x: clean_text_for_clustering(x, apply_spelling))
+            df_questions = df_questions[~df_questions['processed_text'].apply(is_unimportant_sentence)]
+           
+            tab1, tab2, tab3 = st.tabs(["**Daftar Pertanyaan**", "**Analisis Topik**", "**Pertanyaan Representatif**"])
+    
+            with tab1:
+                st.subheader(f"Ditemukan {len(df_questions)} Pesan Pertanyaan")
+    
+                if not df_questions.empty:
+                    df_show = df_questions[['date', 'sender_name', 'text']]
+    
+                    gb = GridOptionsBuilder.from_dataframe(df_show)
+    
+                    # Skala 1:1:3
+                    gb.configure_column("date", header_name="Tanggal", flex=1, resizable=False, suppressMovable=True)
+                    gb.configure_column("sender_name", header_name="Pengirim", flex=1, wrapText=True, autoHeight=True, resizable=False, suppressMovable=True)
+                    gb.configure_column("text", header_name="Pertanyaan", flex=3, wrapText=True, autoHeight=True, resizable=False, suppressMovable=True)
+    
+                    grid_options = gb.build()
+    
+                    AgGrid(
+                        df_show,
+                        gridOptions=grid_options,
+                        height=500,
+                        fit_columns_on_grid_load=True,   
+                        enable_enterprise_modules=False,
+                        allow_unsafe_jscode=True,
+                        theme="streamlit",
+                        reload_data=True,
+                        custom_css={
+                            ".ag-root-wrapper": {"width": "100% !important"},
+                            ".ag-theme-streamlit": {
+                                "width": "100% !important",
+                                "overflow": "hidden !important",  
+                            },
                         },
-                    },
-                    update_mode="MODEL_CHANGED",
-                    suppressHorizontalScroll=True,   
+                        update_mode="MODEL_CHANGED",
+                        suppressHorizontalScroll=True,   
+                    )
+                else:
+                    st.info("Tidak ada pesan yang terdeteksi sebagai pertanyaan pada periode ini.")
+    
+            with tab2:
+                df_questions_with_topics, summary_clusters = analyze_all_topics(df_questions)
+    
+            with tab3:
+                st.subheader("Pertanyaan Representatif per Variasi Topik")
+    
+                if df_questions_with_topics is None or df_questions_with_topics.empty:
+                    st.warning("Belum ada hasil analisis topik untuk dibuat representatifnya.")
+                    st.stop()
+    
+                st.markdown("Sistem akan memecah setiap topik menjadi **beberapa variasi pertanyaan**, lalu membuat **kalimat tanya formal** untuk setiap variasi tersebut.")
+    
+                progress_bar = st.progress(0)
+                progress_text = st.empty()
+    
+                final_results = []
+                all_topics = df_questions_with_topics["final_topic"].unique().tolist()
+    
+                for i, topik in enumerate(all_topics):
+                    progress_text.text(f"Memproses topik {i+1}/{len(all_topics)}: {topik}")
+    
+                    questions_in_topic = df_questions_with_topics[
+                        df_questions_with_topics["final_topic"] == topik
+                    ]["text"].tolist()
+    
+                    if not questions_in_topic:
+                        continue
+    
+                    variations = find_question_variations(questions_in_topic, min_variation_size=3)
+    
+                    for j, variation_questions in enumerate(variations):
+                        representative_sentence = generate_representative(variation_questions)
+    
+                        final_results.append({
+                            "Topik Utama": topik,
+                            "Kalimat Representatif (AI)": representative_sentence, 
+                            "Jumlah Pertanyaan di Variasi": len(variation_questions),
+                            "Pertanyaan Asli": variation_questions 
+                        })
+    
+                    progress_bar.progress((i + 1) / len(all_topics))
+    
+                progress_bar.empty()
+                progress_text.empty()
+    
+                if not final_results:
+                    st.info("Tidak ada variasi pertanyaan yang cukup signifikan untuk dianalisis.")
+                    st.stop()
+    
+                # Kelompokkan berdasarkan topik utama
+                df_results = pd.DataFrame(final_results)
+                grouped = df_results.groupby("Topik Utama")
+    
+                for topik_name, group_df in grouped:
+                    with st.expander(f"{topik_name}", expanded=False):
+                        for _, row in group_df.iterrows():
+                            st.markdown(
+                                f"""
+                                <div style="padding: 10px; border-left: 4px solid #E0935A; background-color: #f9f9f9; margin-bottom: 10px; border-radius: 5px;">
+                                    <strong>Kalimat Representatif:</strong> {row['Kalimat Representatif (AI)']} 
+                                    <span style="color: grey; font-size: 0.9em;">({row['Jumlah Pertanyaan di Variasi']} pertanyaan)</span>
+                                </div>
+                                """,
+                                unsafe_allow_html=True
+                            )
+    
+                            with st.expander("Lihat pertanyaan asli yang menjadi dasar kalimat ini"):
+                                for q in row['Pertanyaan Asli']:
+                                    st.markdown(f"- {q.strip()}")
+    
+                # Tombol Download
+                output = io.BytesIO()
+                df_download = df_results.drop(columns=['Pertanyaan Asli'])
+                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                    df_download.to_excel(writer, sheet_name='Representatif', index=False)
+                output.seek(0)
+    
+                st.download_button(
+                    label="📥 Download Hasil Representatif (Excel)",
+                    data=output,
+                    file_name=f"hasil_representatif_variasi_{datetime.now(wib).strftime('%Y-%m-%d')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
-            else:
-                st.info("Tidak ada pesan yang terdeteksi sebagai pertanyaan pada periode ini.")
-
-        with tab2:
-            df_questions_with_topics, summary_clusters = analyze_all_topics(df_questions)
-
-        with tab3:
-            st.subheader("Pertanyaan Representatif per Variasi Topik")
-
-            if df_questions_with_topics is None or df_questions_with_topics.empty:
-                st.warning("Belum ada hasil analisis topik untuk dibuat representatifnya.")
-                st.stop()
-
-            st.markdown("Sistem akan memecah setiap topik menjadi **beberapa variasi pertanyaan**, lalu membuat **kalimat tanya formal** untuk setiap variasi tersebut.")
-
-            progress_bar = st.progress(0)
-            progress_text = st.empty()
-
-            final_results = []
-            all_topics = df_questions_with_topics["final_topic"].unique().tolist()
-
-            for i, topik in enumerate(all_topics):
-                progress_text.text(f"Memproses topik {i+1}/{len(all_topics)}: {topik}")
-
-                questions_in_topic = df_questions_with_topics[
-                    df_questions_with_topics["final_topic"] == topik
-                ]["text"].tolist()
-
-                if not questions_in_topic:
-                    continue
-
-                variations = find_question_variations(questions_in_topic, min_variation_size=3)
-
-                for j, variation_questions in enumerate(variations):
-                    representative_sentence = generate_representative(variation_questions)
-
-                    final_results.append({
-                        "Topik Utama": topik,
-                        "Kalimat Representatif (AI)": representative_sentence, 
-                        "Jumlah Pertanyaan di Variasi": len(variation_questions),
-                        "Pertanyaan Asli": variation_questions 
-                    })
-
-                progress_bar.progress((i + 1) / len(all_topics))
-
-            progress_bar.empty()
-            progress_text.empty()
-
-            if not final_results:
-                st.info("Tidak ada variasi pertanyaan yang cukup signifikan untuk dianalisis.")
-                st.stop()
-
-            # Kelompokkan berdasarkan topik utama
-            df_results = pd.DataFrame(final_results)
-            grouped = df_results.groupby("Topik Utama")
-
-            for topik_name, group_df in grouped:
-                with st.expander(f"{topik_name}", expanded=False):
-                    for _, row in group_df.iterrows():
-                        st.markdown(
-                            f"""
-                            <div style="padding: 10px; border-left: 4px solid #E0935A; background-color: #f9f9f9; margin-bottom: 10px; border-radius: 5px;">
-                                <strong>Kalimat Representatif:</strong> {row['Kalimat Representatif (AI)']} 
-                                <span style="color: grey; font-size: 0.9em;">({row['Jumlah Pertanyaan di Variasi']} pertanyaan)</span>
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
-
-                        with st.expander("Lihat pertanyaan asli yang menjadi dasar kalimat ini"):
-                            for q in row['Pertanyaan Asli']:
-                                st.markdown(f"- {q.strip()}")
-
-            # Tombol Download
-            output = io.BytesIO()
-            df_download = df_results.drop(columns=['Pertanyaan Asli'])
-            with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                df_download.to_excel(writer, sheet_name='Representatif', index=False)
-            output.seek(0)
-
-            st.download_button(
-                label="📥 Download Hasil Representatif (Excel)",
-                data=output,
-                file_name=f"hasil_representatif_variasi_{datetime.now(wib).strftime('%Y-%m-%d')}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-
-
