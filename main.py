@@ -10,6 +10,8 @@ import re
 from collections import Counter
 from st_aggrid import AgGrid, GridOptionsBuilder
 import io
+import tempfile
+import os
 
 from heredacode import (
     integrate_clustering_with_keywords,
@@ -870,4 +872,5 @@ if st.button("Mulai Proses dan Analisis"):
                 file_name=f"hasil_representatif_variasi_{datetime.now(wib).strftime('%Y-%m-%d')}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
+
 
