@@ -10,7 +10,11 @@ import re
 from collections import Counter
 from st_aggrid import AgGrid, GridOptionsBuilder
 import io
+import csv
+import os
+import numpy as np
 
+# Pastikan file heredacode.py dapat diimpor
 from heredacode import (
     integrate_clustering_with_keywords,
     clean_text_for_clustering,
@@ -39,278 +43,32 @@ api_hash = st.secrets["API_HASH"]
 session_name = "new_session"
 wib = ZoneInfo("Asia/Jakarta")
 
-# Load model
+# Load model dan spelling di luar fungsi agar tidak dimuat ulang setiap kali
 sentence_model = get_sentence_model()
-
-# Load spelling corrections
 spelling = load_spelling_corrections('kata_baku.csv')
+apply_spelling = build_spelling_pattern(spelling)
 
-# Topik dan keyword
+# Topik dan keyword (tidak berubah)
 topik_keywords = {
-    # Topik dengan logika "DAN" (semua kata harus ada)
-    "Status Bast": [
-        ["bast"],
-        ["stuck", "bast"]
-    ],
-    "Verifikasi Toko": [
-        ["verifikasi", "toko"],
-        ["verivikasi", "toko"],
-        ["cek", "id", "toko"],
-        ["nib"]
-    ],
-    "Verifikasi Pembayaran": [
-        ["verifikasi", "pembayaran"],
-        ["verifikasi", "pesanan"],
-        ["verivikasi", "pembayaran"],
-        ["minta", "verifikasi"],
-        ["konfirmasi"],
-        ["notif", "error"],
-        ["verifikasi"],
-        ["verivikasi"]
-    ],
-    "Penerusan Dana": [
-        ["penerusan", "dana"],
-        ["dana", "diteruskan"],
-        ["uang", "diteruskan"],
-        ["penerusan"],
-        ["diteruskan"],
-        ["meneruskan"],
-        ["dana", "teruskan"],
-        ["uang", "teruskan"],
-        ["penyaluran"],
-        ["di teruskan"],
-        ["salur"]
-    ],
-    "Dana Belum Masuk": [
-        ["dana", "belum", "masuk"],
-        ["uang", "belum", "masuk"],
-        ["dana", "masuk", "belum"],
-        ["uang", "masuk", "belum"],
-        ["dana", "tidak", "masuk"],
-        ["uang", "tidak", "masuk"],
-        ["dana", "gagal", "masuk"],
-        ["uang", "gagal", "masuk"],
-        ["belum", "masuk", "rekening"],
-        ["belum", "transfer", "masuk"],
-        ["belum", "masuk"]
-    ],
-    "Jadwal Cair Dana": [
-        ["bos", "cair"],
-        ["bop", "cair"],
-        ["jadwal", "cair"],
-        ["kapan", "cair"],
-        ["gelombang", "2"],
-        ["tahap", "2"],
-        ["pencairan"]
-    ],
-    "Kendala Akses" : [
-        ["kendala", "akses"],
-        ["gagal", "akses"],
-        ["tidak", "bisa", "akses"],
-        ["tidak", "bisa", "login"],
-        ["tidak", "bisa", "masuk"],
-        ["gagal", "login"],
-        ["gagal", "masuk"],
-        ["gagal", "akses"],
-        ["reset", "akun"],
-        ["reset", "password"],
-        ["ganti", "password"],
-        ["ganti", "akun"],
-        ["ganti", "email"],
-        ["ganti", "no hp"],
-        ["ganti", "no telepon"],
-        ["ganti", "telepon"],
-        ["eror", "akses"],
-        ["eror", "login"],
-        ["eror"],
-        ["web", "dibuka"],
-        ["gk", "bisa", "masuk"],
-        ["belum", "lancar"],
-        ["bisa", "diakses"],
-        ["gangguan"],
-        ["gangguannya"],
-        ["belum", "normal", "webnya"],
-        ["trobel"],
-        ["trobelnya"],
-        ["ga", "bisa", "akses"],
-        ["ga", "bisa", "log", "in"],
-        ["ga", "bisa", "masuk"],
-        ["ga", "bisa", "web"],
-        ["g", "masuk2"],
-        ["gk", "bisa2"],
-        ["web", "troubel"],
-        ["jaringan"],
-        ["belum", "bisa", "masuk", "situs"],
-        ["belum", "normal", "web"],
-        ["vpn"],
-        ["gabisa", "login"],
-        ["gabisa", "akses"],
-        ["g", "bisa", "akses"],
-        ["g", "bisa", "login"],
-        ["tidak", "bisa", "di", "buka"],
-        ["bermasalah", "login"],
-        ["login", "trouble"],
-        ["sedang", "maintenance"],
-        ["di block"],
-        ["normal"],
-        ["error"],
-        ["trouble"],
-        ["maintainance"]
-    ],
-    "Kendala Autentikasi": [
-        ["kendala", "autentikasi"],
-        ["gagal", "autentikasi"],
-        ["tidak", "bisa", "autentikasi"],
-        ["gagal", "otentikasi"],
-        ["tidak", "bisa", "otentikasi"],
-        ["authenticator", "reset"], 
-        ["autentikasi", "salah"],
-        ["autentikasi", "2", "langkah"],
-        ["autentikasi", "dua", "langkah"],
-        ["2", "langkah"],
-        ["autentifikasi"],
-        ["otentikasi"],
-        ["otp", "gagal"],
-        ["otp", "tidak", "bisa"],
-        ["otp", "tidak", "muncul"],
-        ["otp", "tidak", "tampil"],
-        ["otp", "tidak", "ada"],
-        ["reset", "barcode"],
-        ["authenticator"],
-        ["aktivasi"],
-        ["otentikasi"]
-    ],
-    "Kendala Upload": [
-        ["kendala", "upload"],
-        ["gagal", "upload"],
-        ["tidak", "bisa", "upload"],
-        ["gagal", "unggah"],
-        ["tidak", "bisa", "unggah"],
-        ["produk", "tidak", "muncul"],
-        ["produk", "tidak", "tampil"],
-        ["produk", "tidak", "ada"],
-        ["produk", "massal"],
-        ["produk", "masal"],
-        ["template", "upload"],
-        ["template", "unggah"],
-        ["unggah", "produk"],
-        ["menambahkan", "produk"],
-        ["menambah", "produk"],
-        ["tambah", "produk"],
-        ["tambah", "barang"],
-        ["unggah", "foto"],
-        ["unggah", "gambar"],
-        ["unggah", "foto", "produk"],
-        ["unggah", "gambar", "produk"],
-        ["upload", "produk"],
-        ["upload", "barang"]
-    ],
-    "Kendala Pengiriman": [
-        ["tidak", "bisa", "pengiriman"],
-        ["barang", "rusak"],
-        ["barang", "hilang"],
-        ["status", "pengiriman"]
-    ],
-    "Tanda Tangan Elektronik (TTE)": [
-        ["tanda", "tangan", "elektronik"],
-        ["ttd", "elektronik"],
-        ["tte"],
-        ["ttd"],
-        ["tt elektronik"],
-        ["e", "sign"],
-        ["elektronik", "dokumen"],
-        ["ttd", "elektronic"]
-    ],
-    "Ubah Data Toko": [
-        ["ubah", "data", "toko"],
-        ["edit", "data", "toko"],
-        ["ubah", "nama", "toko"],
-        ["edit", "nama", "toko"],
-        ["ubah", "rekening"],
-        ["edit", "rekening"],
-        ["ubah", "status", "toko"],
-        ["edit", "status", "toko"],
-        ["ubah", "status", "umkm"],
-        ["edit", "status", "umkm"],
-        ["ubah", "status", "pkp"],
-        ["ganti"]
-    ],
-    "Seputar Akun Pengguna": [
-        ["ganti", "email"],
-        ["ubah", "email"],
-        ["ganti", "nama", "akun"],
-        ["ubah", "nama", "akun"],
-        ["ganti", "akun"],
-        ["ubah", "akun"],
-        ["gagal", "ganti", "akun"],
-        ["gagal", "ubah", "akun"]
-    ],
-    "Pengajuan Modal": [
-        ["pengajuan", "modal"],
-        ["ajukan", "modal"],
-        ["modal", "kerja"],
-        ["dana", "talangan"],
-        ["dibatalkan", "pengajuan"],
-        ["tidak", "bisa", "ajukan"],
-        ["modal", "talangan"],
-        ["modal", "kerja"],
-        ["dana", "talangan"],
-        ["dana", "kerja"],
-        ["modal", "bantuan"],
-        ["modal", "usaha"],
-        ["modal", "bantuan", "usaha"]
-    ],
-    "Pajak": [
-        ["pajak", "ppn"],
-        ["pajak", "invoice"],
-        ["pajak", "npwp"],
-        ["pajak", "penghasilan"],
-        ["e-billing"],
-        ["dipotong", "pajak"],
-        ["pajak", "keluaran"],
-        ["potongan", "pajak"],
-        ["coretax"],
-        ["pajak"],
-        ["ppn"],
-        ["npwp"],
-        ["e-faktur"],
-        ["efaktur"],
-        ["e-billing"],
-        ["dpp"],
-        ["pph"]
-    ],
-    "Etika Penggunaan": [
-        ["bendahara", "dapat", "untung"],
-        ["bendahara", "dagang"],
-        ["bendahara", "etik"],
-        ["distributor", "dilarang"],
-        ["etik", "distributor"],
-        ["etik", "larangan"],
-        ["etik", "juknis"],
-        ["larangan"]
-    ],
-    "Waktu Proses": [
-        ["kapan"],
-        ["estimasi"],
-        ["waktu", "proses"],
-        ["waktu", "penyelesaian"],
-        ["waktu", "selesai"],
-        ["berapa","lm"],
-        ["berapa", "lama"],
-        ["berapa", "hari"],
-        ["jam", "berapa"]
-    ],
-    "Pembatalan Pesanan": [
-        ["batalkan", "pesanan"],
-        ["pembatalan", "pesanan"],
-        ["batalkan", "order"],
-        ["pembatalan", "order"],
-        ["batalin", "pesanan"],
-        ["batalin", "order"],
-        ["cancel"]
-    ],
-
-    # Topik dengan logika "ATAU" (salah satu kata cukup)
+    # ... (masukkan seluruh dictionary topik_keywords Anda di sini) ...
+    "Status Bast": [["bast"], ["stuck", "bast"]],
+    "Verifikasi Toko": [["verifikasi", "toko"], ["verivikasi", "toko"], ["cek", "id", "toko"], ["nib"]],
+    "Verifikasi Pembayaran": [["verifikasi", "pembayaran"], ["verifikasi", "pesanan"], ["verivikasi", "pembayaran"], ["minta", "verifikasi"], ["konfirmasi"], ["notif", "error"], ["verifikasi"], ["verivikasi"]],
+    "Penerusan Dana": [["penerusan", "dana"], ["dana", "diteruskan"], ["uang", "diteruskan"], ["penerusan"], ["diteruskan"], ["meneruskan"], ["dana", "teruskan"], ["uang", "teruskan"], ["penyaluran"], ["di teruskan"], ["salur"]],
+    "Dana Belum Masuk": [["dana", "belum", "masuk"], ["uang", "belum", "masuk"], ["dana", "masuk", "belum"], ["uang", "masuk", "belum"], ["dana", "tidak", "masuk"], ["uang", "tidak", "masuk"], ["dana", "gagal", "masuk"], ["uang", "gagal", "masuk"], ["belum", "masuk", "rekening"], ["belum", "transfer", "masuk"], ["belum", "masuk"]],
+    "Jadwal Cair Dana": [["bos", "cair"], ["bop", "cair"], ["jadwal", "cair"], ["kapan", "cair"], ["gelombang", "2"], ["tahap", "2"], ["pencairan"]],
+    "Kendala Akses" : [["kendala", "akses"], ["gagal", "akses"], ["tidak", "bisa", "akses"], ["tidak", "bisa", "login"], ["tidak", "bisa", "masuk"], ["gagal", "login"], ["gagal", "masuk"], ["gagal", "akses"], ["reset", "akun"], ["reset", "password"], ["ganti", "password"], ["ganti", "akun"], ["ganti", "email"], ["ganti", "no hp"], ["ganti", "no telepon"], ["ganti", "telepon"], ["eror", "akses"], ["eror", "login"], ["eror"], ["web", "dibuka"], ["gk", "bisa", "masuk"], ["belum", "lancar"], ["bisa", "diakses"], ["gangguan"], ["gangguannya"], ["belum", "normal", "webnya"], ["trobel"], ["trobelnya"], ["ga", "bisa", "akses"], ["ga", "bisa", "log", "in"], ["ga", "bisa", "masuk"], ["ga", "bisa", "web"], ["g", "masuk2"], ["gk", "bisa2"], ["web", "troubel"], ["jaringan"], ["belum", "bisa", "masuk", "situs"], ["belum", "normal", "web"], ["vpn"], ["gabisa", "login"], ["gabisa", "akses"], ["g", "bisa", "akses"], ["g", "bisa", "login"], ["tidak", "bisa", "di", "buka"], ["bermasalah", "login"], ["login", "trouble"], ["sedang", "maintenance"], ["di block"], ["normal"], ["error"], ["trouble"], ["maintainance"]],
+    "Kendala Autentikasi": [["kendala", "autentikasi"], ["gagal", "autentikasi"], ["tidak", "bisa", "autentikasi"], ["gagal", "otentikasi"], ["tidak", "bisa", "otentikasi"], ["authenticator", "reset"], ["autentikasi", "salah"], ["autentikasi", "2", "langkah"], ["autentikasi", "dua", "langkah"], ["2", "langkah"], ["autentifikasi"], ["otentikasi"], ["otp", "gagal"], ["otp", "tidak", "bisa"], ["otp", "tidak", "muncul"], ["otp", "tidak", "tampil"], ["otp", "tidak", "ada"], ["reset", "barcode"], ["authenticator"], ["aktivasi"], ["otentikasi"]],
+    "Kendala Upload": [["kendala", "upload"], ["gagal", "upload"], ["tidak", "bisa", "upload"], ["gagal", "unggah"], ["tidak", "bisa", "unggah"], ["produk", "tidak", "muncul"], ["produk", "tidak", "tampil"], ["produk", "tidak", "ada"], ["produk", "massal"], ["produk", "masal"], ["template", "upload"], ["template", "unggah"], ["unggah", "produk"], ["menambahkan", "produk"], ["menambah", "produk"], ["tambah", "produk"], ["tambah", "barang"], ["unggah", "foto"], ["unggah", "gambar"], ["unggah", "foto", "produk"], ["unggah", "gambar", "produk"], ["upload", "produk"], ["upload", "barang"]],
+    "Kendala Pengiriman": [["tidak", "bisa", "pengiriman"], ["barang", "rusak"], ["barang", "hilang"], ["status", "pengiriman"]],
+    "Tanda Tangan Elektronik (TTE)": [["tanda", "tangan", "elektronik"], ["ttd", "elektronik"], ["tte"], ["ttd"], ["tt elektronik"], ["e", "sign"], ["elektronik", "dokumen"], ["ttd", "elektronic"]],
+    "Ubah Data Toko": [["ubah", "data", "toko"], ["edit", "data", "toko"], ["ubah", "nama", "toko"], ["edit", "nama", "toko"], ["ubah", "rekening"], ["edit", "rekening"], ["ubah", "status", "toko"], ["edit", "status", "toko"], ["ubah", "status", "umkm"], ["edit", "status", "umkm"], ["ubah", "status", "pkp"], ["ganti"]],
+    "Seputar Akun Pengguna": [["ganti", "email"], ["ubah", "email"], ["ganti", "nama", "akun"], ["ubah", "nama", "akun"], ["ganti", "akun"], ["ubah", "akun"], ["gagal", "ganti", "akun"], ["gagal", "ubah", "akun"]],
+    "Pengajuan Modal": [["pengajuan", "modal"], ["ajukan", "modal"], ["modal", "kerja"], ["dana", "talangan"], ["dibatalkan", "pengajuan"], ["tidak", "bisa", "ajukan"], ["modal", "talangan"], ["modal", "kerja"], ["dana", "talangan"], ["dana", "kerja"], ["modal", "bantuan"], ["modal", "usaha"], ["modal", "bantuan", "usaha"]],
+    "Pajak": [["pajak", "ppn"], ["pajak", "invoice"], ["pajak", "npwp"], ["pajak", "penghasilan"], ["e-billing"], ["dipotong", "pajak"], ["pajak", "keluaran"], ["potongan", "pajak"], ["coretax"], ["pajak"], ["ppn"], ["npwp"], ["e-faktur"], ["efaktur"], ["e-billing"], ["dpp"], ["pph"]],
+    "Etika Penggunaan": [["bendahara", "dapat", "untung"], ["bendahara", "dagang"], ["bendahara", "etik"], ["distributor", "dilarang"], ["etik", "distributor"], ["etik", "larangan"], ["etik", "juknis"], ["larangan"]],
+    "Waktu Proses": [["kapan"], ["estimasi"], ["waktu", "proses"], ["waktu", "penyelesaian"], ["waktu", "selesai"], ["berapa","lm"], ["berapa", "lama"], ["berapa", "hari"], ["jam", "berapa"]],
+    "Pembatalan Pesanan": [["batalkan", "pesanan"], ["pembatalan", "pesanan"], ["batalkan", "order"], ["pembatalan", "order"], ["batalin", "pesanan"], ["batalin", "order"], ["cancel"]],
     "Pembayaran Dana": ["transfer", "dana masuk", "pengembalian", "bayar", "pembayaran", "dana", "dibayar", "notif pembayaran", "transaksi", "expired"],
     "Pengiriman Barang": ["pengiriman", "barang rusak", "kapan dikirim", "status pengiriman", "diproses"],
     "Penggunaan Siplah": ["pakai siplah", "siplah", "laporan siplah", "pembelanjaan", "tanggal pembelanjaan", "ubah tanggal", "dokumen", "bisa langsung dipakai", "terhubung arkas"],
@@ -320,7 +78,8 @@ topik_keywords = {
     "lainnya": []
 }
 
-# TAMPILAN STREAMLIT 
+
+# TAMPILAN STREAMLIT
 st.set_page_config(page_title="Scraper & Analisis Telegram", layout="wide")
 st.title("Analisis Topik Pertanyaan Grup Telegram")
 
@@ -343,131 +102,113 @@ def is_question_like(text: str) -> bool:
     """Deteksi apakah teks valid pertanyaan dengan filter ketat."""
     if pd.isna(text) or not isinstance(text, str):
         return False
-
     text_lower = text.strip().lower()
     if not text_lower:
         return False
-
-    # Filter noise awal 
-    non_question_patterns = [
-        r'^(min|admin|pak|bu|kk|kak|om|bro|sis)[\s\?]*$',  # cuma panggilan
-        r'^[\?\.]+$',                                      # cuma tanda baca
-        r'^(iya|ya+|oke+|ok|sip|noted+|oh+|lah+|loh+)$',   # respon singkat
-        r'^(anggota baru|selamat berlibur|wah keren|mantap+|mantul+).*$',  # basa basi
-    ]
+    non_question_patterns = [r'^(min|admin|pak|bu|kk|kak|om|bro|sis)[\s\?]*$', r'^[\?\.]+$', r'^(iya|ya+|oke+|ok|sip|noted+|oh+|lah+|loh+)$', r'^(anggota baru|selamat berlibur|wah keren|mantap+|mantul+).*$',]
     for pat in non_question_patterns:
         if re.match(pat, text_lower):
             return False
-
-    # Cek tanda tanya (tetapi wajib ada >=3 kata bermakna)
     words = text_lower.split()
     if "?" in text_lower and len(words) >= 3:
         return True
-
-    question_words = ["apa","apakah","siapa","kapan","mengapa","kenapa","bagaimana",
-                      "gimana","dimana","berapa","kok","kenapakah","bagaimanakah"]
+    question_words = ["apa","apakah","siapa","kapan","mengapa","kenapa","bagaimana","gimana","dimana","berapa","kok","kenapakah","bagaimanakah"]
     if any(q in words for q in question_words):
-        # wajib ada kata context (biar ga lolos yg no context)
-        context_keywords = ["dana","uang","pembayaran","verifikasi","akun","login","akses","upload",
-                            "barang","produk","toko","pengiriman","rekening","modal","npwp","pajak"]
+        context_keywords = ["dana","uang","pembayaran","verifikasi","akun","login","akses","upload","barang","produk","toko","pengiriman","rekening","modal","npwp","pajak"]
         if any(kw in text_lower for kw in context_keywords):
             return True
         else:
             return False
-
-    question_phrases = [
-        "ada yang tahu", "mau tanya", "izin bertanya", "boleh tanya",
-        "butuh bantuan", "ada solusi", "minta saran", "rekomendasi",
-        "sudah diproses belum", "kok belum", "kapan cair", "gimana prosesnya",
-        "cek status", "caranya gimana", "kenapa gagal"
-    ]
+    question_phrases = ["ada yang tahu", "mau tanya", "izin bertanya", "boleh tanya", "butuh bantuan", "ada solusi", "minta saran", "rekomendasi", "sudah diproses belum", "kok belum", "kapan cair", "gimana prosesnya", "cek status", "caranya gimana", "kenapa gagal"]
     if any(phrase in text_lower for phrase in question_phrases):
         return True
-
     return False
 
-async def scrape_messages(group, start_dt, end_dt, max_estimate=5000):
-    all_messages = []
+async def scrape_and_save_questions_to_file(group, start_dt, end_dt, filename):
     sender_cache = {}
-
+    total_saved = 0
+    
     progress_bar = st.progress(0)
     progress_text = st.empty()
-    progress_text.text("Menghubungkan ke Telegram...")
+    progress_text.text("Menghubungkan ke Telegram dan menyaring pertanyaan...")
 
     try:
         async with TelegramClient(session_name, api_id, api_hash) as client:
             entity = await client.get_entity(group)
             offset_id = 0
             limit = 100
-            total_fetched = 0
             stop_loop = False
 
-            while True:
-                history = await client(GetHistoryRequest(
-                    peer=entity,
-                    limit=limit,
-                    offset_id=offset_id,
-                    offset_date=None,   
-                    add_offset=0,
-                    max_id=0,
-                    min_id=0,
-                    hash=0
-                ))
+            # Buka file CSV untuk ditulis
+            with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
+                fieldnames = ['date', 'sender_name', 'text']
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                writer.writeheader()
 
-                messages = history.messages
-                if not messages:
-                    break
+                while True:
+                    history = await client(GetHistoryRequest(
+                        peer=entity, limit=limit, offset_id=offset_id, offset_date=None,
+                        add_offset=0, max_id=0, min_id=0, hash=0
+                    ))
 
-                for msg in messages:
-                    if not getattr(msg, 'message', None) or not getattr(msg, 'date', None):
-                        continue
-
-                    msg_date_wib = msg.date.astimezone(wib)
-
-                    # FILTER ketat
-                    if msg_date_wib < start_dt:
-                        stop_loop = True
+                    messages = history.messages
+                    if not messages:
                         break
-                    if msg_date_wib > end_dt:
-                        continue
 
-                    sender_id = msg.sender_id
-                    sender_name = sender_cache.get(sender_id)
-                    if not sender_name:
-                        try:
-                            sender = await client.get_entity(sender_id)
-                            sender_name = f"{sender.first_name or ''} {sender.last_name or ''}".strip() or sender.username or f"User ID: {sender_id}"
-                        except Exception:
-                            sender_name = f"User ID: {sender_id}"
-                        sender_cache[sender_id] = sender_name
+                    for msg in messages:
+                        if not getattr(msg, 'message', None) or not getattr(msg, 'date', None):
+                            continue
 
-                    all_messages.append({
-                        'id': msg.id,
-                        'sender_id': sender_id,
-                        'sender_name': sender_name,
-                        'text': msg.message,
-                        'date': msg_date_wib.strftime("%Y-%m-%d %H:%M:%S")
-                    })
+                        msg_date_wib = msg.date.astimezone(wib)
 
-                total_fetched = len(all_messages)
-                progress = min(1.0, total_fetched / max_estimate)
-                progress_bar.progress(progress)
-                progress_text.text(f"Mengambil pesan... {total_fetched}")
+                        if msg_date_wib < start_dt:
+                            stop_loop = True
+                            break
+                        if msg_date_wib > end_dt:
+                            continue
 
-                if stop_loop:
-                    break
+                        sender_id = msg.sender_id
+                        sender_name = sender_cache.get(sender_id)
+                        if not sender_name:
+                            try:
+                                sender = await client.get_entity(sender_id)
+                                sender_name = f"{sender.first_name or ''} {sender.last_name or ''}".strip() or sender.username or f"User ID: {sender_id}"
+                            except Exception:
+                                sender_name = f"User ID: {sender_id}"
+                            sender_cache[sender_id] = sender_name
+                        
+                        # Filter CS dan panggilan saja
+                        if sender_name in ['CS TokoLadang', 'Eko | TokLa', 'Vava']:
+                            continue
 
-                offset_id = messages[-1].id
-                await asyncio.sleep(0)
+                        text_clean = msg.message.lower()
+                        text_clean = re.sub(r'http\S+|www\.\S+', '', text_clean)
+                        
+                        # Filter pertanyaan
+                        if is_question_like(text_clean):
+                            writer.writerow({
+                                'date': msg_date_wib.strftime("%Y-%m-%d %H:%M:%S"),
+                                'sender_name': sender_name,
+                                'text': text_clean
+                            })
+                            total_saved += 1
+                    
+                    if stop_loop:
+                        break
+
+                    offset_id = messages[-1].id
+                    progress_text.text(f"Mengambil... {total_saved} pertanyaan valid ditemukan.")
 
     except Exception as e:
         st.error(f"Terjadi kesalahan saat scraping: {e}")
-        return None
+        # Hapus file kosong jika terjadi error
+        if os.path.exists(filename):
+            os.remove(filename)
+        return 0
 
     progress_bar.progress(1.0)
     progress_text.empty()
-    st.success(f"Selesai mengambil {len(all_messages)} pesan!")
-    return pd.DataFrame(all_messages)
+    return total_saved
 
 def analyze_all_topics(df_questions):
     if df_questions.empty:
@@ -475,25 +216,17 @@ def analyze_all_topics(df_questions):
         return None, None
 
     num_messages = len(df_questions)
-    if num_messages <= 50:
-        num_auto_clusters = find_optimal_clusters(df_questions['processed_text'].tolist(), 2, 4)
-    elif num_messages <= 100:
-        num_auto_clusters = find_optimal_clusters(df_questions['processed_text'].tolist(), 3, 6)
-    elif num_messages <= 200:
-        num_auto_clusters = find_optimal_clusters(df_questions['processed_text'].tolist(), 4, 8)
-    elif num_messages <= 300:
-        num_auto_clusters = find_optimal_clusters(df_questions['processed_text'].tolist(), 5, 9)
-    elif num_messages <= 500:
-        num_auto_clusters = find_optimal_clusters(df_questions['processed_text'].tolist(), 7, 12)
-    elif num_messages <= 1000:
-        num_auto_clusters = find_optimal_clusters(df_questions['processed_text'].tolist(), 10, 18)
-    else:
-        num_auto_clusters = find_optimal_clusters(df_questions['processed_text'].tolist(), 15, 30)
+    if num_messages <= 50: num_auto_clusters = find_optimal_clusters(df_questions['processed_text'].tolist(), 2, 4)
+    elif num_messages <= 100: num_auto_clusters = find_optimal_clusters(df_questions['processed_text'].tolist(), 3, 6)
+    elif num_messages <= 200: num_auto_clusters = find_optimal_clusters(df_questions['processed_text'].tolist(), 4, 8)
+    elif num_messages <= 300: num_auto_clusters = find_optimal_clusters(df_questions['processed_text'].tolist(), 5, 9)
+    elif num_messages <= 500: num_auto_clusters = find_optimal_clusters(df_questions['processed_text'].tolist(), 7, 12)
+    elif num_messages <= 1000: num_auto_clusters = find_optimal_clusters(df_questions['processed_text'].tolist(), 10, 18)
+    else: num_auto_clusters = find_optimal_clusters(df_questions['processed_text'].tolist(), 15, 30)
 
     df_for_clustering = df_questions.copy()
     df_for_clustering["text"] = df_for_clustering["processed_text"]
-
-    # Clustering topik utama 
+    
     result = integrate_clustering_with_keywords(
         df_for_clustering,
         topik_keywords,
@@ -501,205 +234,114 @@ def analyze_all_topics(df_questions):
         num_auto_clusters=num_auto_clusters,
     )
     df_questions_with_topics = result[0] if isinstance(result, tuple) else result
-
-    # Gabungkan topik mirip
-    df_questions_with_topics = merge_similar_topics(
-        df_questions_with_topics,
-        sim_threshold=0.85,
-        min_topic_size=3,
-        use_embeddings=False
-    )
+    df_questions_with_topics = merge_similar_topics(df_questions_with_topics, sim_threshold=0.85, min_topic_size=3, use_embeddings=False)
 
     summary_clusters = {}
     for topik in df_questions_with_topics["final_topic"].unique():
-        pertanyaan_topik = df_questions_with_topics.loc[
-            df_questions_with_topics["final_topic"] == topik, "text"
-        ].tolist()
+        pertanyaan_topik = df_questions_with_topics.loc[df_questions_with_topics["final_topic"] == topik, "text"].tolist()
         summary_clusters[topik] = pertanyaan_topik
 
-    new_count = df_questions_with_topics.loc[
-        df_questions_with_topics["final_topic"].str.lower().str.startswith("(new)")
-    ]["final_topic"].nunique()
-
+    new_count = df_questions_with_topics.loc[df_questions_with_topics["final_topic"].str.lower().str.startswith("(new)")]["final_topic"].nunique()
     st.subheader("Ringkasan Topik Teratas")
     st.markdown(f"**Jumlah topik baru terdeteksi: {new_count}**")
-
     topik_counter = Counter(df_questions_with_topics["final_topic"])
-    summary_data = [
-        {"Topik": topik, "Jumlah Pertanyaan": count}
-        for topik, count in topik_counter.most_common()
-    ]
+    summary_data = [{"Topik": topik, "Jumlah Pertanyaan": count} for topik, count in topik_counter.most_common()]
     st.dataframe(pd.DataFrame(summary_data), width="stretch")
-
     st.subheader("Detail Pertanyaan per Topik")
     for topik, count in topik_counter.most_common():
         with st.expander(f"Topik: {topik} ({count} pertanyaan)"):
-            questions_for_topic = df_questions_with_topics[
-                df_questions_with_topics["final_topic"] == topik
-            ]["text"].tolist()
-
+            questions_for_topic = df_questions_with_topics[df_questions_with_topics["final_topic"] == topik]["text"].tolist()
             for q in questions_for_topic[:8]:
                 st.markdown(f"- {q.strip()}")
-
     return df_questions_with_topics, summary_clusters
 
-# Tombol eksekusi 
+
+# Tombol eksekusi
 if st.button("Mulai Proses dan Analisis"):
     if not group or group == "@contohgroup":
         st.warning("⚠ Mohon isi nama grup Telegram yang valid terlebih dahulu.")
         st.stop()
-    start_dt = datetime.combine(start_date_scrape, datetime.min.time()).replace(tzinfo=wib)
-    end_dt = datetime.combine(end_date_scrape, datetime.max.time()).replace(tzinfo=wib)
-    df_all = asyncio.run(scrape_messages(group, start_dt, end_dt))
 
-    if df_all is not None and not df_all.empty:
-        df_all = df_all.sort_values('date').reset_index(drop=True)
-        df_all['text'] = df_all['text'].str.lower()
-        df_all['text'] = df_all['text'].str.replace(r'http\S+|www\.\S+', '', regex=True)
-        df_all = df_all[df_all['text'].str.strip() != '']
-        df_all.drop_duplicates(subset=['sender_id', 'text', 'date'], keep='first', inplace=True)
-        df_all = df_all[~df_all['sender_name'].isin(['CS TokoLadang', 'Eko | TokLa', 'Vava'])]
+    temp_filename = f"temp_questions_{datetime.now(wib).strftime('%Y%m%d%H%M%S')}.csv"
+    
+    try:
+        num_questions = asyncio.run(scrape_and_save_questions_to_file(group, start_dt, end_dt, temp_filename))
 
-        df_all['is_question'] = df_all['text'].apply(is_question_like)
-        df_questions = df_all[df_all['is_question']].copy()
-
-        # --- Load spelling corrections ---
-        spelling = load_spelling_corrections("kata_baku.csv")   
-        apply_spelling = build_spelling_pattern(spelling)      
-        # --- Preprocessing dengan spelling ---
-        df_questions['processed_text'] = df_questions['text'].apply(lambda x: clean_text_for_clustering(x, apply_spelling))
-        df_questions = df_questions[~df_questions['processed_text'].apply(is_unimportant_sentence)]
-
-        tab1, tab2, tab3 = st.tabs(["**Daftar Pertanyaan**", "**Analisis Topik**", "**Pertanyaan Representatif**"])
-
-        with tab1:
-            st.subheader(f"Ditemukan {len(df_questions)} Pesan Pertanyaan")
-
-            if not df_questions.empty:
-                df_show = df_questions[['date', 'sender_name', 'text']]
-
-                gb = GridOptionsBuilder.from_dataframe(df_show)
-
-                # Skala 1:1:3
-                gb.configure_column("date", header_name="Tanggal", flex=1, resizable=False, suppressMovable=True)
-                gb.configure_column("sender_name", header_name="Pengirim", flex=1, wrapText=True, autoHeight=True, resizable=False, suppressMovable=True)
-                gb.configure_column("text", header_name="Pertanyaan", flex=3, wrapText=True, autoHeight=True, resizable=False, suppressMovable=True)
-
-                grid_options = gb.build()
-
-                AgGrid(
-                    df_show,
-                    gridOptions=grid_options,
-                    height=500,
-                    fit_columns_on_grid_load=True,   
-                    enable_enterprise_modules=False,
-                    allow_unsafe_jscode=True,
-                    theme="streamlit",
-                    reload_data=True,
-                    custom_css={
-                        ".ag-root-wrapper": {"width": "100% !important"},
-                        ".ag-theme-streamlit": {
-                            "width": "100% !important",
-                            "overflow": "hidden !important",  
-                        },
-                    },
-                    update_mode="MODEL_CHANGED",
-                    suppressHorizontalScroll=True,   
-                )
+        if num_questions > 0:
+            st.success(f"Selesai! {num_questions} pertanyaan valid telah disimpan ke file sementara.")
+            
+            # Baca hanya pertanyaan yang sudah difilter dari file
+            df_questions = pd.read_csv(temp_filename)
+            
+            # Preprocessing
+            df_questions['processed_text'] = df_questions['text'].apply(lambda x: clean_text_for_clustering(x, apply_spelling))
+            df_questions = df_questions[~df_questions['processed_text'].apply(is_unimportant_sentence)]
+            
+            if df_questions.empty:
+                st.info("Setelah preprocessing, tidak ada pertanyaan yang tersisa untuk dianalisis.")
             else:
-                st.info("Tidak ada pesan yang terdeteksi sebagai pertanyaan pada periode ini.")
+                tab1, tab2, tab3 = st.tabs(["**Daftar Pertanyaan**", "**Analisis Topik**", "**Pertanyaan Representatif**"])
 
-        with tab2:
-            df_questions_with_topics, summary_clusters = analyze_all_topics(df_questions)
+                with tab1:
+                    st.subheader(f"Ditemukan {len(df_questions)} Pesan Pertanyaan (Setelah Preprocessing)")
+                    df_show = df_questions[['date', 'sender_name', 'text']]
+                    gb = GridOptionsBuilder.from_dataframe(df_show)
+                    gb.configure_column("date", header_name="Tanggal", flex=1, resizable=False, suppressMovable=True)
+                    gb.configure_column("sender_name", header_name="Pengirim", flex=1, wrapText=True, autoHeight=True, resizable=False, suppressMovable=True)
+                    gb.configure_column("text", header_name="Pertanyaan", flex=3, wrapText=True, autoHeight=True, resizable=False, suppressMovable=True)
+                    grid_options = gb.build()
+                    AgGrid(df_show, gridOptions=grid_options, height=500, fit_columns_on_grid_load=True, enable_enterprise_modules=False, allow_unsafe_jscode=True, theme="streamlit", reload_data=True, custom_css={".ag-root-wrapper": {"width": "100% !important"}, ".ag-theme-streamlit": {"width": "100% !important", "overflow": "hidden !important",}}, update_mode="MODEL_CHANGED", suppressHorizontalScroll=True)
 
-        with tab3:
-            st.subheader("Pertanyaan Representatif per Variasi Topik")
+                with tab2:
+                    df_questions_with_topics, summary_clusters = analyze_all_topics(df_questions)
 
-            if df_questions_with_topics is None or df_questions_with_topics.empty:
-                st.warning("Belum ada hasil analisis topik untuk dibuat representatifnya.")
-                st.stop()
+                with tab3:
+                    # ... (Kode untuk tab Pertanyaan Representatif tetap sama) ...
+                    st.subheader("Pertanyaan Representatif per Variasi Topik")
+                    if df_questions_with_topics is None or df_questions_with_topics.empty:
+                        st.warning("Belum ada hasil analisis topik untuk dibuat representatifnya.")
+                        st.stop()
+                    st.markdown("Sistem akan memecah setiap topik menjadi **beberapa variasi pertanyaan**, lalu membuat **kalimat tanya formal** untuk setiap variasi tersebut.")
+                    
+                    progress_bar = st.progress(0)
+                    progress_text = st.empty()
+                    
+                    final_results = []
+                    all_topics = df_questions_with_topics["final_topic"].unique().tolist()
+                    for i, topik in enumerate(all_topics):
+                        progress_text.text(f"Memproses topik {i+1}/{len(all_topics)}: {topik}")
+                        questions_in_topic = df_questions_with_topics[df_questions_with_topics["final_topic"] == topik]["text"].tolist()
+                        if not questions_in_topic: continue
+                        variations = find_question_variations(questions_in_topic, min_variation_size=3)
+                        for j, variation_questions in enumerate(variations):
+                            representative_sentence = generate_representative(variation_questions)
+                            final_results.append({"Topik Utama": topik, "Kalimat Representatif (AI)": representative_sentence, "Jumlah Pertanyaan di Variasi": len(variation_questions), "Pertanyaan Asli": variation_questions})
+                        progress_bar.progress((i + 1) / len(all_topics))
+                    progress_bar.empty()
+                    progress_text.empty()
+                    if not final_results:
+                        st.info("Tidak ada variasi pertanyaan yang cukup signifikan untuk dianalisis.")
+                        st.stop()
+                    df_results = pd.DataFrame(final_results)
+                    grouped = df_results.groupby("Topik Utama")
+                    for topik_name, group_df in grouped:
+                        with st.expander(f"{topik_name}", expanded=False):
+                            for _, row in group_df.iterrows():
+                                st.markdown(f"""<div style="padding: 10px; border-left: 4px solid #E0935A; background-color: #f9f9f9; margin-bottom: 10px; border-radius: 5px;"><strong>Kalimat Representatif:</strong> {row['Kalimat Representatif (AI)']} <span style="color: grey; font-size: 0.9em;">({row['Jumlah Pertanyaan di Variasi']} pertanyaan)</span></div>""", unsafe_allow_html=True)
+                                with st.expander("Lihat pertanyaan asli yang menjadi dasar kalimat ini"):
+                                    for q in row['Pertanyaan Asli']:
+                                        st.markdown(f"- {q.strip()}")
+                    output = io.BytesIO()
+                    df_download = df_results.drop(columns=['Pertanyaan Asli'])
+                    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                        df_download.to_excel(writer, sheet_name='Representatif', index=False)
+                    output.seek(0)
+                    st.download_button(label="📥 Download Hasil Representatif (Excel)", data=output, file_name=f"hasil_representatif_variasi_{datetime.now(wib).strftime('%Y-%m-%d')}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
-            st.markdown("Sistem akan memecah setiap topik menjadi **beberapa variasi pertanyaan**, lalu membuat **kalimat tanya formal** untuk setiap variasi tersebut.")
+        else:
+            st.info("Tidak ada pertanyaan yang ditemukan pada periode tersebut.")
 
-            progress_bar = st.progress(0)
-            progress_text = st.empty()
-
-            final_results = []
-            all_topics = df_questions_with_topics["final_topic"].unique().tolist()
-
-            for i, topik in enumerate(all_topics):
-                progress_text.text(f"Memproses topik {i+1}/{len(all_topics)}: {topik}")
-
-                questions_in_topic = df_questions_with_topics[
-                    df_questions_with_topics["final_topic"] == topik
-                ]["text"].tolist()
-
-                if not questions_in_topic:
-                    continue
-
-                variations = find_question_variations(questions_in_topic, min_variation_size=3)
-
-                for j, variation_questions in enumerate(variations):
-                    representative_sentence = generate_representative(variation_questions)
-
-                    final_results.append({
-                        "Topik Utama": topik,
-                        "Kalimat Representatif (AI)": representative_sentence, 
-                        "Jumlah Pertanyaan di Variasi": len(variation_questions),
-                        "Pertanyaan Asli": variation_questions 
-                    })
-
-                progress_bar.progress((i + 1) / len(all_topics))
-
-            progress_bar.empty()
-            progress_text.empty()
-
-            if not final_results:
-                st.info("Tidak ada variasi pertanyaan yang cukup signifikan untuk dianalisis.")
-                st.stop()
-
-            # Kelompokkan berdasarkan topik utama
-            df_results = pd.DataFrame(final_results)
-            grouped = df_results.groupby("Topik Utama")
-
-            for topik_name, group_df in grouped:
-                with st.expander(f"{topik_name}", expanded=False):
-                    for _, row in group_df.iterrows():
-                        st.markdown(
-                            f"""
-                            <div style="padding: 10px; border-left: 4px solid #E0935A; background-color: #f9f9f9; margin-bottom: 10px; border-radius: 5px;">
-                                <strong>Kalimat Representatif:</strong> {row['Kalimat Representatif (AI)']} 
-                                <span style="color: grey; font-size: 0.9em;">({row['Jumlah Pertanyaan di Variasi']} pertanyaan)</span>
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
-
-                        with st.expander("Lihat pertanyaan asli yang menjadi dasar kalimat ini"):
-                            for q in row['Pertanyaan Asli']:
-                                st.markdown(f"- {q.strip()}")
-
-            # Tombol Download
-            output = io.BytesIO()
-            df_download = df_results.drop(columns=['Pertanyaan Asli'])
-            with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                df_download.to_excel(writer, sheet_name='Representatif', index=False)
-            output.seek(0)
-
-            st.download_button(
-                label="📥 Download Hasil Representatif (Excel)",
-                data=output,
-                file_name=f"hasil_representatif_variasi_{datetime.now(wib).strftime('%Y-%m-%d')}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-
-            )
-
-
-
-
-
-
-
-
-
-
+    finally:
+        if os.path.exists(temp_filename):
+            os.remove(temp_filename)
+            st.sidebar.info("File sementara telah dibersihkan.")
