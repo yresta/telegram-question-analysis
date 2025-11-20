@@ -476,13 +476,22 @@ async def scrape_messages(group, start_dt, end_dt, max_estimate=5000):
     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.parquet')
     temp_filename = temp_file.name
     temp_file.close()
-    
-    # Set untuk tracking duplicate (sender_id + processed_text)
+
+    # Buat file sementara untuk tracking duplicate
+    sseen_temp = tempfile.NamedTemporaryFile(delete=False, suffix='.txt')
+    seen_filename = seen_temp.name
+    seen_temp.close()
     seen_questions = set()
+     
+    try:
+    with open(seen_filename, 'r') as f:
+        seen_questions = set(line.strip() for line in f)
+    except FileNotFoundError:
+        pass
     
     # Batch processing
     batch_data = []
-    batch_size = 500
+    batch_size = 100
     total_fetched = 0
     total_questions = 0
 
@@ -555,9 +564,11 @@ async def scrape_messages(group, start_dt, end_dt, max_estimate=5000):
                     dedup_key = f"{sender_id}_{processed_for_dedup}"
                     
                     if dedup_key in seen_questions:
-                        continue  # Skip duplicate
+                        continue  # Skip  duplicate
                     
                     seen_questions.add(dedup_key)
+                    with open(seen_filename, 'a') as f:
+                        f.write(dedup_key + '\n')
 
                     # Tambahkan ke batch
                     batch_data.append({
@@ -616,6 +627,11 @@ async def scrape_messages(group, start_dt, end_dt, max_estimate=5000):
     except Exception as e:
         st.error(f"Terjadi kesalahan saat scraping: {e}")
         return None, 0
+    finally:
+        try:
+            os.unlink(seen_filename)
+        except:
+            pass
 
     progress_bar.progress(1.0)
     progress_text.empty()
@@ -867,4 +883,5 @@ if st.button("Mulai Proses dan Analisis"):
                     file_name=f"hasil_representatif_variasi_{datetime.now(wib).strftime('%Y-%m-%d')}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
+
 
