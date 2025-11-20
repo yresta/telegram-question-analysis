@@ -752,7 +752,7 @@ if st.button("Mulai Proses dan Analisis"):
                 st.subheader(f"Ditemukan {len(df_questions)} Pesan Pertanyaan")
     
                 if not df_questions.empty:
-                    df_show = df_questions[['date', 'sender_name', 'text']]
+                    df_show = df_questions[['date', 'sender_name', 'text']].copy()
     
                     gb = GridOptionsBuilder.from_dataframe(df_show)
     
@@ -771,7 +771,6 @@ if st.button("Mulai Proses dan Analisis"):
                         enable_enterprise_modules=False,
                         allow_unsafe_jscode=True,
                         theme="streamlit",
-                        reload_data=True,
                         custom_css={
                             ".ag-root-wrapper": {"width": "100% !important"},
                             ".ag-theme-streamlit": {
@@ -779,7 +778,7 @@ if st.button("Mulai Proses dan Analisis"):
                                 "overflow": "hidden !important",  
                             },
                         },
-                        update_mode="MODEL_CHANGED",
+                        update_on="stateChanged",
                         suppressHorizontalScroll=True,   
                     )
                 else:
@@ -868,3 +867,4 @@ if st.button("Mulai Proses dan Analisis"):
                     file_name=f"hasil_representatif_variasi_{datetime.now(wib).strftime('%Y-%m-%d')}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
+
