@@ -12,6 +12,7 @@ from st_aggrid import AgGrid, GridOptionsBuilder
 import io
 import tempfile
 import os
+import gc
 
 from heredacode import (
     integrate_clustering_with_keywords,
@@ -598,6 +599,7 @@ async def scrape_messages(group, start_dt, end_dt, max_estimate=5000):
                     
                     total_fetched += len(df_batch)
                     batch_data = []
+                    gc.collect()
 
                 # Update progress
                 progress = min(1.0, total_questions / max_estimate)
@@ -883,6 +885,7 @@ if st.button("Mulai Proses dan Analisis"):
                     file_name=f"hasil_representatif_variasi_{datetime.now(wib).strftime('%Y-%m-%d')}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
+
 
 
 
