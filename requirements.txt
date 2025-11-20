@@ -11,3 +11,6 @@ python-dateutil
 tzdata
 streamlit-aggrid
 openpyxl
+pytz
+regex
+psutil
