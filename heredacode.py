@@ -826,17 +826,24 @@ def generate_representative(questions: List[str]) -> str:
 
     sample_questions = questions[:3]
     
-    # Preprocessing untuk menghilangkan informasi sensitif
+    # Preprocessing untuk menghilangkan informasi sensitif - LEBIH HATI-HATI
     cleaned_questions = []
     for q in sample_questions:
-        # Hapus nomor PO, ID transaksi, dll.
-        q_clean = re.sub(r'\bpo[a-z0-9]+\b', '[nomor pesanan]', q.lower())
+        # Hapus nomor PO dengan placeholder yang KONSISTEN
+        q_clean = re.sub(r'\bpo[a-z0-9]{10,}\b', '[NOMOR_PO]', q.lower())
+        # Hapus ID transaksi/random
         q_clean = re.sub(r'\b[a-z0-9]{8,}\b', '[ID]', q_clean)
-        q_clean = re.sub(r'\b(kalimantan timur|jakarta|surabaya|dll)\b', '[lokasi]', q_clean)
-        q_clean = re.sub(r'\b(toko|merchant|penyedia)\s+[a-z]+\b', '[nama toko]', q_clean)
-        q_clean = re.sub(r'\bterima\s+kasih\b', '', q_clean)
-        q_clean = re.sub(r'\bmin\b|kak\b|admin\b|pak\b|bu\b', '', q_clean)
-        cleaned_questions.append(q_clean.strip())
+        # Hapus lokasi spesifik
+        q_clean = re.sub(r'\b(kalimantan timur|jakarta|surabaya|bandung|medan|makassar|sulawesi selatan)\b', '[LOKASI]', q_clean)
+        # Hapus nama toko spesifik
+        q_clean = re.sub(r'\b(toko|merchant|penyedia|cv|pt)\s+[a-z]+\b', '[NAMA_TOKO]', q_clean)
+        # Hapus frasa umum yang tidak perlu
+        q_clean = re.sub(r'\b(terima\s+kasih|terimakasih|mohon\s+bantu|bantu|petunjuk|info|maaf)\b', '', q_clean, flags=re.IGNORECASE)
+        # Hapus panggilan admin
+        q_clean = re.sub(r'\b(min|kak|admin|pak|bu|om|tante|cs|customer service)\b', '', q_clean, flags=re.IGNORECASE)
+        # Bersihkan spasi berlebih
+        q_clean = re.sub(r'\s+', ' ', q_clean).strip()
+        cleaned_questions.append(q_clean)
 
     prompt = f"""
 ANDA ADALAH SEORANG ANALIS LAYANAN PELANGGAN. TUGAS ANDA ADALAH MERINGKAS SEKUMPULAN PERTANYAAN PENGGUNA MENJADI SATU KALIMAT TANYA FORMAL YANG MENCERMIKAN INTI MASALAH.
@@ -943,7 +950,7 @@ def clean_representative_sentence(sentence: str) -> str:
     prefixes_to_remove = [
         "Kalimat Tanya Representatif:", "Representatif:", "Jawaban:", 
         "Answer:", "Pertanyaan:", "Contoh:", "Kalimat Tanya:", "Response:",
-        "hasil:", "output:"
+        "hasil:", "output:", "Berikut"
     ]
     sentence_lower = sentence.lower().strip()
     for pref in prefixes_to_remove:
@@ -955,8 +962,9 @@ def clean_representative_sentence(sentence: str) -> str:
     sentence = re.sub(r'\?[\s\-]*\?+$', '?', sentence)
     sentence = re.sub(r'^[\d\.\-\*\s"]+', '', sentence).strip()
     
-    # Hapus frasa umum yang tidak perlu
-    sentence = re.sub(r'\b(terima\s+kasih|mohon\s+maaf|tolong|info|bantu|petunjuk)\b', '', sentence, flags=re.IGNORECASE)
+    # Hapus placeholder yang tidak valid
+    sentence = re.sub(r'\[.*?\]', '', sentence)  # Hapus semua placeholder dulu
+    sentence = re.sub(r'\s+', ' ', sentence).strip()
     
     # Pastikan hanya ada satu kalimat pertanyaan
     if '?' in sentence:
@@ -965,15 +973,15 @@ def clean_representative_sentence(sentence: str) -> str:
 
     sentence = re.sub(r'\s+', ' ', sentence).strip()
     
-    # Normalisasi awalan pertanyaan - lebih fleksibel
+    # Normalisasi awalan pertanyaan
     sentence_clean = sentence.lower().strip()
-    question_starters = ["bagaimana", "apa", "mengapa", "kenapa", "kapan", "cara", "solusi", "penyebab", "masalah"]
-    
-    # Jika tidak dimulai dengan kata tanya, tambahkan "Bagaimana cara"
-    if sentence_clean and not any(sentence_clean.startswith(q) for q in question_starters):
-        # Cek apakah sudah mengandung kata tanya
-        if any(q_word in sentence_clean for q_word in ["apa", "bagaimana", "kenapa", "mengapa", "kapan", "cara"]):
-            sentence = sentence_clean
+    if sentence_clean and not sentence_clean.startswith(("bagaimana", "apa", "mengapa", "kenapa", "kapan", "cara", "solusi", "penyebab")):
+        if any(word in sentence_clean for word in ["error", "gangguan", "masalah", "kendala"]):
+            sentence = "Bagaimana cara mengatasi kendala teknis?"
+        elif any(word in sentence_clean for word in ["bayar", "pembayaran", "transfer", "dana", "cair"]):
+            sentence = "Bagaimana cara menyelesaikan masalah pembayaran?"
+        elif any(word in sentence_clean for word in ["login", "akses", "masuk"]):
+            sentence = "Apa solusi untuk masalah akses akun?"
         else:
             sentence = "Bagaimana cara " + sentence_clean
     
@@ -1017,18 +1025,13 @@ def clean_representative_sentence(sentence: str) -> str:
 #     return True
 
 def is_valid_representative(sentence: str) -> bool:
-    if not sentence or len(sentence.strip()) < 15:  # Minimal 15 karakter
+    if not sentence or len(sentence.strip()) < 20:
         return False
     
-    # Hindari fallback dini - hanya jika benar-benar tidak valid
-    invalid_indicators = [
-        "contoh", "pertanyaan", "jawaban", "representatif", 
-        "kalimat tanya", "berikut", "sebagai", "response",
-        "hasil", "output", "berikutnya"
-    ]
-    
+    # Cek placeholder yang tidak diizinkan
+    forbidden_placeholders = ['[id]', '[nomor pesanan]', '[po]', 'po68', '[noid]', '[no]']
     sentence_lower = sentence.lower()
-    if any(indicator in sentence_lower for indicator in invalid_indicators):
+    if any(ph in sentence_lower for ph in forbidden_placeholders):
         return False
     
     # Harus mengandung kata tanya
@@ -1036,21 +1039,21 @@ def is_valid_representative(sentence: str) -> bool:
         return False
     
     # Panjang yang masuk akal
-    if len(sentence) < 20 or len(sentence) > 120:
+    if len(sentence) < 25 or len(sentence) > 100:
         return False
     
     # Harus mengandung kata kunci pertanyaan
-    question_keywords = ["bagaimana", "apa", "mengapa", "kenapa", "kapan", "cara", "solusi", "penyebab", "masalah", "gimana"]
+    question_keywords = ["bagaimana", "apa", "mengapa", "kenapa", "kapan", "cara", "solusi", "penyebab", "masalah"]
     if not any(keyword in sentence_lower for keyword in question_keywords):
         return False
     
-    # Hindari terlalu banyak placeholder
-    if sentence.count('[') > 2:  # Maksimal 2 placeholder
+    # Hindari kalimat terlalu umum
+    too_generic = ["apa saja", "bagaimana ya", "kenapa ya", "gimana ya", "tolong bantu"]
+    if any(generic in sentence_lower for generic in too_generic):
         return False
     
-    # Hindari kalimat terlalu umum
-    too_generic = ["apa saja", "bagaimana ya", "kenapa ya", "gimana ya"]
-    if any(generic in sentence_lower for generic in too_generic):
+    # Harus terdengar profesional
+    if sentence.count('...') > 0 or sentence.count('??') > 0:
         return False
     
     return True
@@ -1270,4 +1273,5 @@ if __name__ == '__main__':
     df_merged = merge_similar_topics(df_result, use_embeddings=True)
     print("\n=== Setelah Merge Similar Topics ===")
     print(df_merged['final_topic'].value_counts())
+
 
