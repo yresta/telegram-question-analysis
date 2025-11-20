@@ -481,13 +481,13 @@ async def scrape_messages(group, start_dt, end_dt, max_estimate=5000):
     sseen_temp = tempfile.NamedTemporaryFile(delete=False, suffix='.txt')
     seen_filename = seen_temp.name
     seen_temp.close()
+
     seen_questions = set()
-     
     try:
     with open(seen_filename, 'r') as f:
         seen_questions = set(line.strip() for line in f)
     except FileNotFoundError:
-        pass
+    pass
     
     # Batch processing
     batch_data = []
@@ -883,5 +883,6 @@ if st.button("Mulai Proses dan Analisis"):
                     file_name=f"hasil_representatif_variasi_{datetime.now(wib).strftime('%Y-%m-%d')}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
+
 
 
