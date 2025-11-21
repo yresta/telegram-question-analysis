@@ -18,7 +18,7 @@ from typing import Callable, Optional, List
 nltk.download('punkt', quiet=True)
 
 # Configuration / Constants
-DEFAULT_MODEL_NAME = 'paraphrase-multilingual-MiniLM-L12-v2'
+DEFAULT_MODEL_NAME = 'paraphrase-multilingual-mpnet-base-v2'
 MIN_CLUSTER_SIZE = 8
 MAX_RECURSIVE_DEPTH = 3
 EMBEDDING_BATCH_SIZE = 128
@@ -922,6 +922,7 @@ if __name__ == '__main__':
     df_merged = merge_similar_topics(df_result, use_embeddings=True)
     print("\n=== Setelah Merge Similar Topics ===")
     print(df_merged['final_topic'].value_counts())
+
 
 
 
