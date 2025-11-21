@@ -362,7 +362,7 @@ def is_question_like(text: str) -> bool:
         if re.match(pat, text_lower):
             return False
 
-    # Cek tanda tanya (tetapi wajib ada >=3 kata bermakna)
+    # Cek tanda tanya (tapi wajib ada >=3 kata bermakna)
     words = text_lower.split()
     if "?" in text_lower and len(words) >= 3:
         return True
@@ -389,90 +389,13 @@ def is_question_like(text: str) -> bool:
 
     return False
 
-# async def scrape_messages(group, start_dt, end_dt, max_estimate=5000):
-#     all_messages = []
-#     sender_cache = {}
-
-#     progress_bar = st.progress(0)
-#     progress_text = st.empty()
-#     progress_text.text("Menghubungkan ke Telegram...")
-
-#     try:
-#         async with TelegramClient(session_name, api_id, api_hash) as client:
-#             entity = await client.get_entity(group)
-#             offset_id = 0
-#             limit = 100
-#             total_fetched = 0
-#             stop_loop = False
-
-#             while True:
-#                 history = await client(GetHistoryRequest(
-#                     peer=entity,
-#                     limit=limit,
-#                     offset_id=offset_id,
-#                     offset_date=None,   
-#                     add_offset=0,
-#                     max_id=0,
-#                     min_id=0,
-#                     hash=0
-#                 ))
-
-#                 messages = history.messages
-#                 if not messages:
-#                     break
-
-#                 for msg in messages:
-#                     if not getattr(msg, 'message', None) or not getattr(msg, 'date', None):
-#                         continue
-
-#                     msg_date_wib = msg.date.astimezone(wib)
-
-#                     # FILTER ketat
-#                     if msg_date_wib < start_dt:
-#                         stop_loop = True
-#                         break
-#                     if msg_date_wib > end_dt:
-#                         continue
-
-#                     sender_id = msg.sender_id
-#                     sender_name = sender_cache.get(sender_id)
-#                     if not sender_name:
-#                         try:
-#                             sender = await client.get_entity(sender_id)
-#                             sender_name = f"{sender.first_name or ''} {sender.last_name or ''}".strip() or sender.username or f"User ID: {sender_id}"
-#                         except Exception:
-#                             sender_name = f"User ID: {sender_id}"
-#                         sender_cache[sender_id] = sender_name
-
-#                     all_messages.append({
-#                         'id': msg.id,
-#                         'sender_id': sender_id,
-#                         'sender_name': sender_name,
-#                         'text': msg.message,
-#                         'date': msg_date_wib.strftime("%Y-%m-%d %H:%M:%S")
-#                     })
-
-#                 total_fetched = len(all_messages)
-#                 progress = min(1.0, total_fetched / max_estimate)
-#                 progress_bar.progress(progress)
-#                 progress_text.text(f"Mengambil pesan... {total_fetched}")
-
-#                 if stop_loop:
-#                     break
-
-#                 offset_id = messages[-1].id
-#                 await asyncio.sleep(0)
-
-#     except Exception as e:
-#         st.error(f"Terjadi kesalahan saat scraping: {e}")
-#         return None
-
-#     progress_bar.progress(1.0)
-#     progress_text.empty()
-#     st.success(f"Selesai mengambil {len(all_messages)} pesan!")
-#     return pd.DataFrame(all_messages)
+def get_client():
+    return TelegramClient(session_name, api_id, api_hash)
 
 async def scrape_messages(group, start_dt, end_dt, max_estimate=5000):
+    client = get_client()
+    await client.connect()
+
     # Buat file sementara untuk menyimpan hanya pertanyaan
     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.parquet')
     temp_filename = temp_file.name
@@ -501,130 +424,114 @@ async def scrape_messages(group, start_dt, end_dt, max_estimate=5000):
     progress_text.text("Menghubungkan ke Telegram...")
 
     try:
-        async with TelegramClient(session_name, api_id, api_hash) as client:
-            entity = await client.get_entity(group)
-            offset_id = 0
-            limit = 100
-            stop_loop = False
+        entity = await client.get_entity(group)
+        offset_id = 0
+        limit = 100
+        stop_loop = False
 
-            while True:
-                history = await client(GetHistoryRequest(
-                    peer=entity,
-                    limit=limit,
-                    offset_id=offset_id,
-                    offset_date=None,   
-                    add_offset=0,
-                    max_id=0,
-                    min_id=0,
-                    hash=0
-                ))
+        while True:
+            history = await client(GetHistoryRequest(
+                peer=entity,
+                limit=limit,
+                offset_id=offset_id,
+                offset_date=None,   
+                add_offset=0,
+                max_id=0,
+                min_id=0,
+                hash=0
+            ))
 
-                messages = history.messages
-                if not messages:
+            messages = history.messages
+            if not messages:
+                break
+
+            for msg in messages:
+                if not getattr(msg, 'message', None) or not getattr(msg, 'date', None):
+                    continue
+
+                msg_date_wib = msg.date.astimezone(wib)
+
+                if msg_date_wib < start_dt:
+                    stop_loop = True
                     break
+                if msg_date_wib > end_dt:
+                    continue
 
-                for msg in messages:
-                    if not getattr(msg, 'message', None) or not getattr(msg, 'date', None):
-                        continue
+                raw_text = msg.message.strip()
+                if not raw_text:
+                    continue
 
-                    msg_date_wib = msg.date.astimezone(wib)
+                clean_text = re.sub(r'http\S+|www\.\S+', '', raw_text).strip()
+                if not clean_text:
+                    continue
 
-                    # FILTER tanggal
-                    if msg_date_wib < start_dt:
-                        stop_loop = True
-                        break
-                    if msg_date_wib > end_dt:
-                        continue
+                # cek pertanyaan
+                if not is_question_like(clean_text):
+                    continue
 
-                    # Preprocessing awal pesan
-                    raw_text = msg.message.strip()
-                    if not raw_text:
-                        continue
+                sender_id = msg.sender_id
+                sender_name = f"User ID: {sender_id}"
+                try:
+                    sender = await client.get_entity(sender_id)
+                    sender_name = f"{sender.first_name or ''} {sender.last_name or ''}".strip() or sender.username or f"User ID: {sender_id}"
+                except:
+                    pass
 
-                    # Hapus URL
-                    clean_text = re.sub(r'http\S+|www\.\S+', '', raw_text).strip()
-                    if not clean_text:
-                        continue
+                processed = clean_text.lower().strip()
+                dedup_key = f"{sender_id}_{processed}"
+                if dedup_key in seen_questions:
+                    continue
+                seen_questions.add(dedup_key)
 
-                    # Cek apakah ini pertanyaan
-                    if not is_question_like(clean_text):
-                        continue
+                with open(seen_filename, 'a') as f:
+                    f.write(dedup_key + '\n')
 
-                    # Dapatkan nama pengirim
-                    sender_id = msg.sender_id
-                    sender_name = f"User ID: {sender_id}"
-                    try:
-                        sender = await client.get_entity(sender_id)
-                        sender_name = f"{sender.first_name or ''} {sender.last_name or ''}".strip() or sender.username or f"User ID: {sender_id}"
-                    except Exception:
-                        pass
+                batch_data.append({
+                    'id': msg.id,
+                    'sender_id': sender_id,
+                    'sender_name': sender_name,
+                    'text': clean_text,
+                    'date': msg_date_wib.strftime("%Y-%m-%d %H:%M:%S")
+                })
+                
+                total_questions += 1
 
-                    # Anti duplicate: sender + konten yang sama
-                    # Gunakan hash dari kombinasi sender_id dan text yang sudah diproses
-                    processed_for_dedup = clean_text.lower().strip()
-                    dedup_key = f"{sender_id}_{processed_for_dedup}"
-                    
-                    if dedup_key in seen_questions:
-                        continue  # Skip  duplicate
-                    
-                    seen_questions.add(dedup_key)
-                    with open(seen_filename, 'a') as f:
-                        f.write(dedup_key + '\n')
-
-                    # Tambahkan ke batch
-                    batch_data.append({
-                        'id': msg.id,
-                        'sender_id': sender_id,
-                        'sender_name': sender_name,
-                        'text': clean_text,
-                        'date': msg_date_wib.strftime("%Y-%m-%d %H:%M:%S")
-                    })
-                    
-                    total_questions += 1
-
-                # Simpan batch jika sudah penuh
-                if len(batch_data) >= batch_size:
-                    df_batch = pd.DataFrame(batch_data)
-                    
-                    # Filter tambahan (jika diperlukan)
-                    df_batch = df_batch[~df_batch['sender_name'].isin(['CS TokoLadang', 'Eko | TokLa', 'Vava'])]
-                    
-                    # Simpan ke file
-                    if total_fetched == 0:
-                        df_batch.to_parquet(temp_filename, index=False)
-                    else:
-                        existing_df = pd.read_parquet(temp_filename)
-                        combined_df = pd.concat([existing_df, df_batch], ignore_index=True)
-                        combined_df.to_parquet(temp_filename, index=False)
-                    
-                    total_fetched += len(df_batch)
-                    batch_data = []
-                    gc.collect()
-
-                # Update progress
-                progress = min(1.0, total_questions / max_estimate)
-                progress_bar.progress(progress)
-                progress_text.text(f"Mengambil pesan... Pertanyaan ditemukan: {total_questions}")
-
-                if stop_loop:
-                    break
-
-                offset_id = messages[-1].id
-                await asyncio.sleep(0)
-
-            # Simpan batch terakhir
-            if batch_data:
+            if len(batch_data) >= batch_size:
                 df_batch = pd.DataFrame(batch_data)
                 df_batch = df_batch[~df_batch['sender_name'].isin(['CS TokoLadang', 'Eko | TokLa', 'Vava'])]
-                
+
                 if total_fetched == 0:
                     df_batch.to_parquet(temp_filename, index=False)
                 else:
                     existing_df = pd.read_parquet(temp_filename)
                     combined_df = pd.concat([existing_df, df_batch], ignore_index=True)
                     combined_df.to_parquet(temp_filename, index=False)
-                
+
                 total_fetched += len(df_batch)
+                batch_data = []
+
+            progress = min(1.0, total_questions / max_estimate)
+            progress_bar.progress(progress)
+            progress_text.text(f"Mengambil pesan... Pertanyaan ditemukan: {total_questions}")
+
+            if stop_loop:
+                break
+
+            offset_id = messages[-1].id
+            await asyncio.sleep(0)
+
+        if batch_data:
+            df_batch = pd.DataFrame(batch_data)
+            df_batch = df_batch[~df_batch['sender_name'].isin(['CS TokoLadang', 'Eko | TokLa', 'Vava'])]
+
+            if total_fetched == 0:
+                df_batch.to_parquet(temp_filename, index=False)
+            else:
+                existing_df = pd.read_parquet(temp_filename)
+                combined_df = pd.concat([existing_df, df_batch], ignore_index=True)
+                combined_df.to_parquet(temp_filename, index=False)
+
+            total_fetched += len(df_batch)
 
     except Exception as e:
         st.error(f"Terjadi kesalahan saat scraping: {e}")
@@ -716,32 +623,6 @@ def analyze_all_topics(df_questions):
     return df_questions_with_topics, summary_clusters
 
 # Tombol eksekusi 
-# if st.button("Mulai Proses dan Analisis"):
-#     if not group or group == "@contohgroup":
-#         st.warning("⚠ Mohon isi nama grup Telegram yang valid terlebih dahulu.")
-#         st.stop()
-#     start_dt = datetime.combine(start_date_scrape, datetime.min.time()).replace(tzinfo=wib)
-#     end_dt = datetime.combine(end_date_scrape, datetime.max.time()).replace(tzinfo=wib)
-#     df_all = asyncio.run(scrape_messages(group, start_dt, end_dt))
-
-#     if df_all is not None and not df_all.empty:
-#         df_all = df_all.sort_values('date').reset_index(drop=True)
-#         df_all['text'] = df_all['text'].str.lower()
-#         df_all['text'] = df_all['text'].str.replace(r'http\S+|www\.\S+', '', regex=True)
-#         df_all = df_all[df_all['text'].str.strip() != '']
-#         df_all.drop_duplicates(subset=['sender_id', 'text', 'date'], keep='first', inplace=True)
-#         df_all = df_all[~df_all['sender_name'].isin(['CS TokoLadang', 'Eko | TokLa', 'Vava'])]
-
-#         df_all['is_question'] = df_all['text'].apply(is_question_like)
-#         df_questions = df_all[df_all['is_question']].copy()
-
-#         # --- Load spelling corrections ---
-#         spelling = load_spelling_corrections("kata_baku.csv")   
-#         apply_spelling = build_spelling_pattern(spelling)      
-#         # --- Preprocessing dengan spelling ---
-#         df_questions['processed_text'] = df_questions['text'].apply(lambda x: clean_text_for_clustering(x, apply_spelling))
-#         df_questions = df_questions[~df_questions['processed_text'].apply(is_unimportant_sentence)]
-
 if st.button("Mulai Proses dan Analisis"):
     if not group or group == "@contohgroup":
         st.warning("⚠ Mohon isi nama grup Telegram yang valid terlebih dahulu.")
@@ -780,7 +661,6 @@ if st.button("Mulai Proses dan Analisis"):
                     gb.configure_column("text", header_name="Pertanyaan", flex=3, wrapText=True, autoHeight=True, resizable=False, suppressMovable=True)
     
                     grid_options = gb.build()
-    
                     AgGrid(
                         df_show,
                         gridOptions=grid_options,
@@ -885,9 +765,3 @@ if st.button("Mulai Proses dan Analisis"):
                     file_name=f"hasil_representatif_variasi_{datetime.now(wib).strftime('%Y-%m-%d')}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
-
-
-
-
-
-
