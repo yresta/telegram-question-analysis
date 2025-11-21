@@ -626,7 +626,7 @@ def analyze_all_topics(df_questions):
                 df_questions_with_topics["final_topic"] == topik
             ]["text"].tolist()
 
-            for q in questions_for_topic[:8]:
+            for q in questions_for_topic:
                 st.markdown(f"- {q.strip()}")
 
     return df_questions_with_topics, summary_clusters
@@ -774,4 +774,5 @@ if st.button("Mulai Proses dan Analisis"):
                     file_name=f"hasil_representatif_variasi_{datetime.now(wib).strftime('%Y-%m-%d')}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
+
 
