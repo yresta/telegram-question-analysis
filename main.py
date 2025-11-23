@@ -12,7 +12,6 @@ import nest_asyncio
 import re
 from collections import Counter
 from st_aggrid import AgGrid, GridOptionsBuilder
-# from pyarrow.parquet import ParquetFile # Tidak diperlukan lagi
 import io
 import tempfile
 import os
@@ -47,12 +46,12 @@ session_name = "new_session"
 wib = ZoneInfo("Asia/Jakarta")
 
 # Load model
-    # Model di-load sekali dan di-cache dengan st.cache_resource
-    sentence_model = get_sentence_model()
+# Model di-load sekali dan di-cache dengan st.cache_resource
+sentence_model = get_sentence_model()
 
 # Load spelling corrections
-    # Spelling corrections di-load sekali dan di-cache dengan st.cache_data
-    spelling = load_spelling_corrections('kata_baku.csv')
+# Spelling corrections di-load sekali dan di-cache dengan st.cache_data
+spelling = load_spelling_corrections('kata_baku.csv')
 
 # Topik dan keyword
 topik_keywords = {
@@ -789,3 +788,4 @@ if st.button("Mulai Proses dan Analisis"):
                     file_name=f"hasil_representatif_variasi_{datetime.now(wib).strftime('%Y-%m-%d')}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
+
