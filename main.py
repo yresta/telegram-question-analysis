@@ -654,7 +654,6 @@ if st.button("Mulai Proses dan Analisis"):
             df_questions = dataset.read().to_pandas()
         except Exception as e:
             st.error(f"Gagal membaca file Parquet: {e}")
-            return None, 0
             
             os.unlink(temp_filename)
             
@@ -790,3 +789,4 @@ if st.button("Mulai Proses dan Analisis"):
                     )
     
     
+
