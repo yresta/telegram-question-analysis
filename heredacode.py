@@ -3,6 +3,7 @@ import os
 from typing import List, Dict, Any, Tuple
 from functools import lru_cache
 import requests
+import streamlit as st
 
 import numpy as np
 import pandas as pd
@@ -22,7 +23,7 @@ DEFAULT_MODEL_NAME = 'paraphrase-multilingual-mpnet-base-v2'
 MIN_CLUSTER_SIZE = 8
 MAX_RECURSIVE_DEPTH = 3
 EMBEDDING_BATCH_SIZE = 128
-model = SentenceTransformer(DEFAULT_MODEL_NAME)
+# model = SentenceTransformer(DEFAULT_MODEL_NAME) # Dihapus, diganti dengan get_sentence_model() yang di-cache
 
 IND_STOPWORDS = set("""
 yang dan di ke dari untuk dengan pada oleh dalam atas sebagai adalah ada itu ini atau tidak sudah belum bisa akan harus sangat juga karena jadi kalau namun tapi serta agar supaya sehingga maka lalu kemudian setelah sebelum hingga sampai pun saya kak bapak ibu pak
@@ -40,6 +41,7 @@ FOCUS_KEYWORDS = {
 
 # Sentence model (cached globally)
 @lru_cache(maxsize=1)
+@st.cache_resource
 def get_sentence_model(model_name: str = DEFAULT_MODEL_NAME):
     return SentenceTransformer(model_name)
 
@@ -56,6 +58,7 @@ def get_sentence_embeddings(texts: List[str], model=None, model_name: str = DEFA
     ))
 
 # Spelling correction
+@st.cache_data
 def load_spelling_corrections(path: str) -> Dict[str, str]:
     if not os.path.exists(path):
         return {}
@@ -67,6 +70,7 @@ def load_spelling_corrections(path: str) -> Dict[str, str]:
         pass
     return {}
 
+@st.cache_data
 def build_spelling_pattern(corrections: Dict[str, str]):
     if not corrections:
         return None
@@ -771,12 +775,3 @@ if __name__ == '__main__':
     df_merged = merge_similar_topics(df_result, use_embeddings=True)
     print("\n=== Setelah Merge Similar Topics ===")
     print(df_merged['final_topic'].value_counts())
-
-
-
-
-
-
-
-
-
