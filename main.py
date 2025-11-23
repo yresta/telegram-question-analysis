@@ -16,6 +16,7 @@ import io
 import tempfile
 import os
 import gc
+import shutil
 
 from heredacode import (
     integrate_clustering_with_keywords,
@@ -640,10 +641,10 @@ if st.button("Mulai Proses dan Analisis"):
             df_questions = dataset.read().to_pandas()
         except Exception as e:
             st.error(f"Gagal membaca file Parquet: {e}")
-            return None, 0
+            shutil.rmtree(temp_dir))
+            st.stop()
             
         # Hapus direktori sementara
-        import shutil
         shutil.rmtree(temp_dir)
         
         if df_questions.empty:
@@ -834,3 +835,4 @@ if st.session_state['df_questions'] is not None:
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
             
+
