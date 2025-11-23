@@ -70,7 +70,6 @@ def load_spelling_corrections(path: str) -> Dict[str, str]:
         pass
     return {}
 
-@st.cache_data
 def build_spelling_pattern(corrections: Dict[str, str]):
     if not corrections:
         return None
@@ -775,3 +774,4 @@ if __name__ == '__main__':
     df_merged = merge_similar_topics(df_result, use_embeddings=True)
     print("\n=== Setelah Merge Similar Topics ===")
     print(df_merged['final_topic'].value_counts())
+
