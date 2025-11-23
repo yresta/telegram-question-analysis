@@ -628,44 +628,53 @@ if st.button("Mulai Proses dan Analisis"):
         st.warning("⚠ Mohon isi nama grup Telegram yang valid terlebih dahulu.")
         st.stop()
     
-    # SCRAPING
-    start_dt = datetime.combine(start_date_scrape, datetime.min.time()).replace(tzinfo=wib)
-    end_dt = datetime.combine(end_date_scrape, datetime.max.time()).replace(tzinfo=wib)
-    temp_dir, question_count = asyncio.run(scrape_messages(group, start_dt, end_dt))
+    # Konversi tanggal ke datetime full
+    start_dt_full = datetime.combine(start_date_scrape, time.min).replace(tzinfo=wib)
+    end_dt_full   = datetime.combine(end_date_scrape, time.max).replace(tzinfo=wib)
+    
+    # Mulai scraping
+    temp_file, question_count = asyncio.run(scrape_messages(group, start_dt_full, end_dt_full))
 
-    if temp_dir and question_count > 0:
-        # Baca Parquet file dengan PyArrow untuk efisiensi
-        try:
-            # Jika menggunakan write_to_dataset, maka perlu membaca sebagai dataset
-            dataset = pq.ParquetDataset(temp_dir)
-            df_questions = dataset.read().to_pandas()
-        except Exception as e:
-            st.error(f"Gagal membaca file Parquet: {e}")
-            shutil.rmtree(temp_dir)
-            st.stop()
-            
-        # Hapus direktori sementara
-        shutil.rmtree(temp_dir)
-        
-        if df_questions.empty:
-            st.info("Tidak ada pertanyaan valid setelah preprocessing.")
-            st.stop()
+    if not temp_file or question_count == 0:
+        st.info("Tidak ada pertanyaan yang ditemukan pada periode ini.")
+        st.stop()
+
+    # Baca file Parquet
+    try:
+        df_questions = pd.read_parquet(temp_file, engine='pyarrow')
+    except Exception as e:
+        st.error(f"Gagal membaca file Parquet: {e}")
+        if os.path.isfile(temp_file):
+            os.remove(temp_file)
+        st.stop()
     
-        df_questions = df_questions.reset_index(drop=True)
-    
-        # Load ejaan baku
-        spelling = load_spelling_corrections("kata_baku.csv")
-        apply_spelling = build_spelling_pattern(spelling)
-    
-        df_questions['processed_text'] = df_questions['text'].apply(lambda x: clean_text_for_clustering(x, apply_spelling))
-        df_questions = df_questions[~df_questions['processed_text'].apply(is_unimportant_sentence)]
-        
-        # Simpan hasil scraping ke Session State
-        st.session_state['df_questions'] = df_questions
-        st.session_state['df_questions_with_topics'] = None # Reset hasil analisis topik
-        st.session_state['final_results'] = None # Reset hasil representatif
-        
-        st.rerun() # Rerun untuk menampilkan tab dengan data baru
+    # Hapus file sementara
+    if os.path.isfile(temp_file):
+        os.remove(temp_file)
+
+    if df_questions.empty:
+        st.info("Tidak ada pertanyaan valid setelah preprocessing.")
+        st.stop()
+
+    # Reset index
+    df_questions = df_questions.reset_index(drop=True)
+
+    # Load ejaan baku dan preprocessing teks
+    spelling = load_spelling_corrections("kata_baku.csv")
+    apply_spelling = build_spelling_pattern(spelling)
+
+    df_questions['processed_text'] = df_questions['text'].apply(
+        lambda x: clean_text_for_clustering(x, apply_spelling)
+    )
+    df_questions = df_questions[~df_questions['processed_text'].apply(is_unimportant_sentence)]
+
+    # Simpan ke session state
+    st.session_state['df_questions'] = df_questions
+    st.session_state['df_questions_with_topics'] = None
+    st.session_state['final_results'] = None
+
+    st.success(f"Selesai scraping, ditemukan {len(df_questions)} pertanyaan.")
+    st.rerun()
 
 # Tampilkan hasil jika data sudah ada di Session State
 if st.session_state['df_questions'] is not None:
@@ -835,5 +844,6 @@ if st.session_state['df_questions'] is not None:
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
             
+
 
 
