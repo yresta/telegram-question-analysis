@@ -756,30 +756,30 @@ if st.session_state['df_questions'] is not None:
 
     with tab3:
         st.subheader("Pertanyaan Representatif per Variasi Topik")
-        
+
         if st.session_state['df_questions_with_topics'] is None or st.session_state['df_questions_with_topics'].empty:
             st.warning("Belum ada hasil analisis topik untuk dibuat representatifnya. Silakan lihat Tab Analisis Topik terlebih dahulu.")
         else:
             df_questions_with_topics = st.session_state['df_questions_with_topics']
         
-            # Inisialisasi session_state untuk progress
-            if 'final_results' not in st.session_state:
+            # Inisialisasi session_state
+            if 'final_results' not in st.session_state or st.session_state['final_results'] is None:
                 st.session_state['final_results'] = []
-            if 'current_topic_index' not in st.session_state:
+            if 'current_topic_index' not in st.session_state or st.session_state['current_topic_index'] is None:
                 st.session_state['current_topic_index'] = 0
         
             all_topics = df_questions_with_topics["final_topic"].unique().tolist()
             total_topics = len(all_topics)
-            batch_size = 3  # Jumlah topik diproses per rerun (bisa diubah)
+            batch_size = 3  # jumlah topik diproses per rerun
         
-            # Hanya jalankan proses jika belum selesai semua
+            # Proses batch topik
             if st.session_state['current_topic_index'] < total_topics:
                 progress_bar = st.progress(0)
                 progress_text = st.empty()
         
-                # Proses batch topik
                 start_idx = st.session_state['current_topic_index']
                 end_idx = min(start_idx + batch_size, total_topics)
+        
                 for i in range(start_idx, end_idx):
                     topik = all_topics[i]
                     progress_text.text(f"Memproses topik {i+1}/{total_topics}: {topik}")
@@ -801,12 +801,14 @@ if st.session_state['df_questions'] is not None:
         
                     st.session_state['current_topic_index'] += 1
                     progress_bar.progress(st.session_state['current_topic_index'] / total_topics)
-                    st.experimental_rerun()  # rerun untuk lanjut batch berikutnya
+        
+                # Rerun otomatis untuk lanjut batch berikutnya
+                st.experimental_rerun()
         
             else:
-                # Semua topik sudah selesai
-                st.success(f"✅ Semua {total_topics} topik sudah diproses!")
-                st.session_state['current_topic_index'] = 0  # reset jika mau reload page
+                # Semua topik selesai
+                st.success(f"Semua {total_topics} topik sudah diproses!")
+                st.session_state['current_topic_index'] = 0  # reset jika reload page
                 df_results = pd.DataFrame(st.session_state['final_results'])
         
                 # Tampilkan hasil
@@ -828,7 +830,7 @@ if st.session_state['df_questions'] is not None:
                                 for q in row['Pertanyaan Asli']:
                                     st.markdown(f"- {q.strip()}")
         
-                # Tombol Download Excel
+                # Tombol download
                 output = io.BytesIO()
                 df_download = df_results.drop(columns=['Pertanyaan Asli'])
                 with pd.ExcelWriter(output, engine='openpyxl') as writer:
