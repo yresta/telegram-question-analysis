@@ -4,11 +4,15 @@ from telethon.tl.functions.messages import GetHistoryRequest
 from datetime import datetime, timedelta, time
 from zoneinfo import ZoneInfo
 import pandas as pd
+import pyarrow.parquet as pq
+import pyarrow as pa
+from pyarrow.parquet import ParquetDataset
 import asyncio
 import nest_asyncio
 import re
 from collections import Counter
 from st_aggrid import AgGrid, GridOptionsBuilder
+# from pyarrow.parquet import ParquetFile # Tidak diperlukan lagi
 import io
 import tempfile
 import os
@@ -43,10 +47,12 @@ session_name = "new_session"
 wib = ZoneInfo("Asia/Jakarta")
 
 # Load model
-sentence_model = get_sentence_model()
+    # Model di-load sekali dan di-cache dengan st.cache_resource
+    sentence_model = get_sentence_model()
 
 # Load spelling corrections
-spelling = load_spelling_corrections('kata_baku.csv')
+    # Spelling corrections di-load sekali dan di-cache dengan st.cache_data
+    spelling = load_spelling_corrections('kata_baku.csv')
 
 # Topik dan keyword
 topik_keywords = {
@@ -507,11 +513,11 @@ async def scrape_messages(group, start_dt, end_dt, max_estimate=5000):
                     
                     # Simpan ke file
                     if total_fetched == 0:
-                        df_batch.to_parquet(temp_filename, index=False)
+                        df_batch.to_parquet(temp_filename, index=False, engine='pyarrow')
                     else:
-                        existing_df = pd.read_parquet(temp_filename)
-                        combined_df = pd.concat([existing_df, df_batch], ignore_index=True)
-                        combined_df.to_parquet(temp_filename, index=False)
+                        # Menggunakan pyarrow.parquet.write_to_dataset untuk append yang lebih efisien
+                        pa_table = pa.Table.from_pandas(df_batch, preserve_index=False)
+                        pq.write_to_dataset(pa_table, root_path=temp_filename, partition_cols=None)
                     
                     total_fetched += len(df_batch)
                     batch_data = []
@@ -534,11 +540,11 @@ async def scrape_messages(group, start_dt, end_dt, max_estimate=5000):
                 df_batch = df_batch[~df_batch['sender_name'].isin(['CS TokoLadang', 'Eko | TokLa', 'Vava'])]
                 
                 if total_fetched == 0:
-                    df_batch.to_parquet(temp_filename, index=False)
+                    df_batch.to_parquet(temp_filename, index=False, engine='pyarrow')
                 else:
-                    existing_df = pd.read_parquet(temp_filename)
-                    combined_df = pd.concat([existing_df, df_batch], ignore_index=True)
-                    combined_df.to_parquet(temp_filename, index=False)
+                    # Menggunakan pyarrow.parquet.write_to_dataset untuk append yang lebih efisien
+                    pa_table = pa.Table.from_pandas(df_batch, preserve_index=False)
+                    pq.write_to_dataset(pa_table, root_path=temp_filename, partition_cols=None)
                 
                 total_fetched += len(df_batch)
 
@@ -557,6 +563,7 @@ async def scrape_messages(group, start_dt, end_dt, max_estimate=5000):
 
     return temp_filename, total_fetched
 
+@st.cache_data(show_spinner="Menganalisis topik...")
 def analyze_all_topics(df_questions):
     if df_questions.empty:
         st.warning("Tidak ada data pertanyaan yang bisa dianalisis.")
@@ -641,13 +648,21 @@ if st.button("Mulai Proses dan Analisis"):
     temp_filename, question_count = asyncio.run(scrape_messages(group, start_dt, end_dt))
 
     if temp_filename and question_count > 0:
-        df_questions = pd.read_parquet(temp_filename)
+        # Baca Parquet file dengan PyArrow untuk efisiensi
+    try:
+        # Jika menggunakan write_to_dataset, maka perlu membaca sebagai dataset
+        dataset = pq.ParquetDataset(temp_filename)
+        df_questions = dataset.read().to_pandas()
+    except Exception as e:
+        st.error(f"Gagal membaca file Parquet: {e}")
+        return None, 0
         
         os.unlink(temp_filename)
         
         if not df_questions.empty:
             df_questions = df_questions.reset_index(drop=True)
     
+            # Ambil dari cache
             spelling = load_spelling_corrections("kata_baku.csv")   
             apply_spelling = build_spelling_pattern(spelling)
             
@@ -774,5 +789,3 @@ if st.button("Mulai Proses dan Analisis"):
                     file_name=f"hasil_representatif_variasi_{datetime.now(wib).strftime('%Y-%m-%d')}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
-
-
