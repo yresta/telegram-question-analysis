@@ -413,6 +413,8 @@ async def scrape_messages(group, start_dt, end_dt, max_estimate=5000):
         pass
     
     # Batch processing
+    all_batches = []
+    
     batch_data = []
     batch_size = 100
     total_fetched = 0
@@ -510,15 +512,9 @@ async def scrape_messages(group, start_dt, end_dt, max_estimate=5000):
                     # Filter tambahan (jika diperlukan)
                     df_batch = df_batch[~df_batch['sender_name'].isin(['CS TokoLadang', 'Eko | TokLa', 'Vava'])]
                     
-                    # Simpan ke file
-                    if total_fetched == 0:
-                        df_batch.to_parquet(temp_filename, index=False, engine='pyarrow')
-                    else:
-                        # Menggunakan pyarrow.parquet.write_to_dataset untuk append yang lebih efisien
-                        pa_table = pa.Table.from_pandas(df_batch, preserve_index=False)
-                        pq.write_to_dataset(pa_table, root_path=temp_filename, partition_cols=None)
-                    
+                    all_batches.append(df_batch)
                     total_fetched += len(df_batch)
+                    
                     batch_data = []
                     gc.collect()
 
@@ -538,23 +534,25 @@ async def scrape_messages(group, start_dt, end_dt, max_estimate=5000):
                 df_batch = pd.DataFrame(batch_data)
                 df_batch = df_batch[~df_batch['sender_name'].isin(['CS TokoLadang', 'Eko | TokLa', 'Vava'])]
                 
-                if total_fetched == 0:
-                    df_batch.to_parquet(temp_filename, index=False, engine='pyarrow')
-                else:
-                    # Menggunakan pyarrow.parquet.write_to_dataset untuk append yang lebih efisien
-                    pa_table = pa.Table.from_pandas(df_batch, preserve_index=False)
-                    pq.write_to_dataset(pa_table, root_path=temp_filename, partition_cols=None)
-                
+                all_batches.append(df_batch)
                 total_fetched += len(df_batch)
 
     except Exception as e:
         st.error(f"Terjadi kesalahan saat scraping: {e}")
         return None, 0
+        
     finally:
         try:
             os.unlink(seen_filename)
         except:
             pass
+
+    if all_batches:
+        final_df = pd.concat(all_batches, ignore_index=True)
+        final_df.to_parquet(temp_filename, index=False, engine='pyarrow')
+    else:
+        # kalau tidak ada data
+        pd.DataFrame().to_parquet(temp_filename, index=False, engine='pyarrow')
 
     progress_bar.progress(1.0)
     progress_text.empty()
@@ -789,4 +787,5 @@ if st.button("Mulai Proses dan Analisis"):
                     )
     
     
+
 
