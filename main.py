@@ -628,7 +628,7 @@ if st.button("Mulai Proses dan Analisis"):
         st.warning("⚠ Mohon isi nama grup Telegram yang valid terlebih dahulu.")
         st.stop()
     
-    # 1. SCRAPING
+    # SCRAPING
     start_dt = datetime.combine(start_date_scrape, datetime.min.time()).replace(tzinfo=wib)
     end_dt = datetime.combine(end_date_scrape, datetime.max.time()).replace(tzinfo=wib)
     temp_dir, question_count = asyncio.run(scrape_messages(group, start_dt, end_dt))
@@ -641,7 +641,7 @@ if st.button("Mulai Proses dan Analisis"):
             df_questions = dataset.read().to_pandas()
         except Exception as e:
             st.error(f"Gagal membaca file Parquet: {e}")
-            shutil.rmtree(temp_dir))
+            shutil.rmtree(temp_dir)
             st.stop()
             
         # Hapus direktori sementara
@@ -835,4 +835,5 @@ if st.session_state['df_questions'] is not None:
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
             
+
 
