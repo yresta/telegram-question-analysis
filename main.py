@@ -754,65 +754,63 @@ if st.session_state['df_questions'] is not None:
                         for q in questions_for_topic:
                             st.markdown(f"- {q.strip()}")
 
-
     with tab3:
         st.subheader("Pertanyaan Representatif per Variasi Topik")
-
+        
         if st.session_state['df_questions_with_topics'] is None or st.session_state['df_questions_with_topics'].empty:
             st.warning("Belum ada hasil analisis topik untuk dibuat representatifnya. Silakan lihat Tab Analisis Topik terlebih dahulu.")
         else:
             df_questions_with_topics = st.session_state['df_questions_with_topics']
-            
-            if st.session_state['final_results'] is None:
-                # Lakukan komputasi berat (panggilan API) hanya jika belum ada di Session State
-                st.markdown("Sistem akan memecah setiap topik menjadi **beberapa variasi pertanyaan**, lalu membuat **kalimat tanya formal** untuk setiap variasi tersebut.")
-
+        
+            # Inisialisasi session_state untuk progress
+            if 'final_results' not in st.session_state:
+                st.session_state['final_results'] = []
+            if 'current_topic_index' not in st.session_state:
+                st.session_state['current_topic_index'] = 0
+        
+            all_topics = df_questions_with_topics["final_topic"].unique().tolist()
+            total_topics = len(all_topics)
+            batch_size = 3  # Jumlah topik diproses per rerun (bisa diubah)
+        
+            # Hanya jalankan proses jika belum selesai semua
+            if st.session_state['current_topic_index'] < total_topics:
                 progress_bar = st.progress(0)
                 progress_text = st.empty()
-
-                final_results = []
-                all_topics = df_questions_with_topics["final_topic"].unique().tolist()
-
-                for i, topik in enumerate(all_topics):
-                    progress_text.text(f"Memproses topik {i+1}/{len(all_topics)}: {topik}")
-
+        
+                # Proses batch topik
+                start_idx = st.session_state['current_topic_index']
+                end_idx = min(start_idx + batch_size, total_topics)
+                for i in range(start_idx, end_idx):
+                    topik = all_topics[i]
+                    progress_text.text(f"Memproses topik {i+1}/{total_topics}: {topik}")
+        
                     questions_in_topic = df_questions_with_topics[
                         df_questions_with_topics["final_topic"] == topik
                     ]["text"].tolist()
-
-                    if not questions_in_topic:
-                        continue
-
-                    variations = find_question_variations(questions_in_topic, min_variation_size=3)
-
-                    for j, variation_questions in enumerate(variations):
-                        representative_sentence = generate_representative(variation_questions)
-
-                        final_results.append({
-                            "Topik Utama": topik,
-                            "Kalimat Representatif (AI)": representative_sentence, 
-                            "Jumlah Pertanyaan di Variasi": len(variation_questions),
-                            "Pertanyaan Asli": variation_questions 
-                        })
-
-                    progress_bar.progress((i + 1) / len(all_topics))
-
-                progress_bar.empty()
-                progress_text.empty()
-                
-                st.session_state['final_results'] = final_results
-                st.rerun() # Rerun untuk menampilkan hasil representatif
-            
-            # Tampilkan hasil dari Session State
-            final_results = st.session_state['final_results']
-            
-            if not final_results:
-                st.info("Tidak ada variasi pertanyaan yang cukup signifikan untuk dianalisis.")
+        
+                    if questions_in_topic:
+                        variations = find_question_variations(questions_in_topic, min_variation_size=3)
+                        for variation_questions in variations:
+                            representative_sentence = generate_representative(variation_questions)
+                            st.session_state['final_results'].append({
+                                "Topik Utama": topik,
+                                "Kalimat Representatif (AI)": representative_sentence,
+                                "Jumlah Pertanyaan di Variasi": len(variation_questions),
+                                "Pertanyaan Asli": variation_questions
+                            })
+        
+                    st.session_state['current_topic_index'] += 1
+                    progress_bar.progress(st.session_state['current_topic_index'] / total_topics)
+                    st.experimental_rerun()  # rerun untuk lanjut batch berikutnya
+        
             else:
-                # Kelompokkan berdasarkan topik utama
-                df_results = pd.DataFrame(final_results)
+                # Semua topik sudah selesai
+                st.success(f"✅ Semua {total_topics} topik sudah diproses!")
+                st.session_state['current_topic_index'] = 0  # reset jika mau reload page
+                df_results = pd.DataFrame(st.session_state['final_results'])
+        
+                # Tampilkan hasil
                 grouped = df_results.groupby("Topik Utama")
-
                 for topik_name, group_df in grouped:
                     with st.expander(f"{topik_name}", expanded=False):
                         for _, row in group_df.iterrows():
@@ -825,25 +823,21 @@ if st.session_state['df_questions'] is not None:
                                 """,
                                 unsafe_allow_html=True
                             )
-
+        
                             with st.expander("Lihat pertanyaan asli yang menjadi dasar kalimat ini"):
                                 for q in row['Pertanyaan Asli']:
                                     st.markdown(f"- {q.strip()}")
-
-                # Tombol Download
+        
+                # Tombol Download Excel
                 output = io.BytesIO()
                 df_download = df_results.drop(columns=['Pertanyaan Asli'])
                 with pd.ExcelWriter(output, engine='openpyxl') as writer:
                     df_download.to_excel(writer, sheet_name='Representatif', index=False)
                 output.seek(0)
-
+        
                 st.download_button(
                     label="📥 Download Hasil Representatif (Excel)",
                     data=output,
                     file_name=f"hasil_representatif_variasi_{datetime.now(wib).strftime('%Y-%m-%d')}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
-            
-
-
-
