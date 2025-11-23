@@ -332,6 +332,16 @@ topik_keywords = {
 st.set_page_config(page_title="Scraper & Analisis Telegram", layout="wide")
 st.title("Analisis Topik Pertanyaan Grup Telegram")
 
+# Inisialisasi Session State
+if 'df_questions' not in st.session_state:
+    st.session_state['df_questions'] = None
+if 'df_questions_with_topics' not in st.session_state:
+    st.session_state['df_questions_with_topics'] = None
+if 'summary_clusters' not in st.session_state:
+    st.session_state['summary_clusters'] = None
+if 'final_results' not in st.session_state:
+    st.session_state['final_results'] = None
+
 # Input grup Telegram dan tanggal
 group = st.text_input("Masukkan username atau ID grup Telegram:", "@contohgroup")
 today = datetime.now(wib).date()
@@ -609,30 +619,6 @@ def analyze_all_topics(df_questions):
         ].tolist()
         summary_clusters[topik] = pertanyaan_topik
 
-    new_count = df_questions_with_topics.loc[
-        df_questions_with_topics["final_topic"].str.lower().str.startswith("(new)")
-    ]["final_topic"].nunique()
-
-    st.subheader("Ringkasan Topik Teratas")
-    st.markdown(f"**Jumlah topik baru terdeteksi: {new_count}**")
-
-    topik_counter = Counter(df_questions_with_topics["final_topic"])
-    summary_data = [
-        {"Topik": topik, "Jumlah Pertanyaan": count}
-        for topik, count in topik_counter.most_common()
-    ]
-    st.dataframe(pd.DataFrame(summary_data), width="stretch")
-
-    st.subheader("Detail Pertanyaan per Topik")
-    for topik, count in topik_counter.most_common():
-        with st.expander(f"Topik: {topik} ({count} pertanyaan)"):
-            questions_for_topic = df_questions_with_topics[
-                df_questions_with_topics["final_topic"] == topik
-            ]["text"].tolist()
-
-            for q in questions_for_topic:
-                st.markdown(f"- {q.strip()}")
-
     return df_questions_with_topics, summary_clusters
 
 # Tombol eksekusi 
@@ -640,20 +626,26 @@ if st.button("Mulai Proses dan Analisis"):
     if not group or group == "@contohgroup":
         st.warning("⚠ Mohon isi nama grup Telegram yang valid terlebih dahulu.")
         st.stop()
+    
+    # 1. SCRAPING
     start_dt = datetime.combine(start_date_scrape, datetime.min.time()).replace(tzinfo=wib)
     end_dt = datetime.combine(end_date_scrape, datetime.max.time()).replace(tzinfo=wib)
-    temp_filename, question_count = asyncio.run(scrape_messages(group, start_dt, end_dt))
+    temp_dir, question_count = asyncio.run(scrape_messages(group, start_dt, end_dt))
 
-    if temp_filename and question_count > 0:
+    if temp_dir and question_count > 0:
+        # Baca Parquet file dengan PyArrow untuk efisiensi
         try:
-            df_questions = pd.read_parquet(temp_filename)
+            # Jika menggunakan write_to_dataset, maka perlu membaca sebagai dataset
+            dataset = pq.ParquetDataset(temp_dir)
+            df_questions = dataset.read().to_pandas()
         except Exception as e:
             st.error(f"Gagal membaca file Parquet: {e}")
-            os.unlink(temp_filename)
-            st.stop()
+            return None, 0
             
-        os.unlink(temp_filename)
-            
+        # Hapus direktori sementara
+        import shutil
+        shutil.rmtree(temp_dir)
+        
         if df_questions.empty:
             st.info("Tidak ada pertanyaan valid setelah preprocessing.")
             st.stop()
@@ -666,125 +658,179 @@ if st.button("Mulai Proses dan Analisis"):
     
         df_questions['processed_text'] = df_questions['text'].apply(lambda x: clean_text_for_clustering(x, apply_spelling))
         df_questions = df_questions[~df_questions['processed_text'].apply(is_unimportant_sentence)]
-           
-        tab1, tab2, tab3 = st.tabs(["**Daftar Pertanyaan**", "**Analisis Topik**", "**Pertanyaan Representatif**"])
+        
+        # Simpan hasil scraping ke Session State
+        st.session_state['df_questions'] = df_questions
+        st.session_state['df_questions_with_topics'] = None # Reset hasil analisis topik
+        st.session_state['final_results'] = None # Reset hasil representatif
+        
+        st.rerun() # Rerun untuk menampilkan tab dengan data baru
 
-        with tab1:
-            st.subheader(f"Ditemukan {len(df_questions)} Pesan Pertanyaan")
+# Tampilkan hasil jika data sudah ada di Session State
+if st.session_state['df_questions'] is not None:
+    df_questions = st.session_state['df_questions']
+    
+    tab1, tab2, tab3 = st.tabs(["**Daftar Pertanyaan**", "**Analisis Topik**", "**Pertanyaan Representatif**"])
 
-            if not df_questions.empty:
-                df_show = df_questions[['date', 'sender_name', 'text']].copy()
+    with tab1:
+        st.subheader(f"Ditemukan {len(df_questions)} Pesan Pertanyaan")
 
-                gb = GridOptionsBuilder.from_dataframe(df_show)
+        if not df_questions.empty:
+            df_show = df_questions[['date', 'sender_name', 'text']].copy()
 
-                # Skala 1:1:3
-                gb.configure_column("date", header_name="Tanggal", flex=1, resizable=False, suppressMovable=True)
-                gb.configure_column("sender_name", header_name="Pengirim", flex=1, wrapText=True, autoHeight=True, resizable=False, suppressMovable=True)
-                gb.configure_column("text", header_name="Pertanyaan", flex=3, wrapText=True, autoHeight=True, resizable=False, suppressMovable=True)
+            gb = GridOptionsBuilder.from_dataframe(df_show)
 
-                grid_options = gb.build()
-                AgGrid(
-                    df_show,
-                    gridOptions=grid_options,
-                    height=500,
-                    fit_columns_on_grid_load=True,   
-                    enable_enterprise_modules=False,
-                    allow_unsafe_jscode=True,
-                    theme="streamlit",
-                    custom_css={
-                        ".ag-root-wrapper": {"width": "100% !important"},
-                        ".ag-theme-streamlit": {
-                            "width": "100% !important",
-                            "overflow": "hidden !important",  
-                        },
+            # Skala 1:1:3
+            gb.configure_column("date", header_name="Tanggal", flex=1, resizable=False, suppressMovable=True)
+            gb.configure_column("sender_name", header_name="Pengirim", flex=1, wrapText=True, autoHeight=True, resizable=False, suppressMovable=True)
+            gb.configure_column("text", header_name="Pertanyaan", flex=3, wrapText=True, autoHeight=True, resizable=False, suppressMovable=True)
+
+            grid_options = gb.build()
+            AgGrid(
+                df_show,
+                gridOptions=grid_options,
+                height=500,
+                fit_columns_on_grid_load=True,   
+                enable_enterprise_modules=False,
+                allow_unsafe_jscode=True,
+                theme="streamlit",
+                custom_css={
+                    ".ag-root-wrapper": {"width": "100% !important"},
+                    ".ag-theme-streamlit": {
+                        "width": "100% !important",
+                        "overflow": "hidden !important",  
                     },
-                    update_on="stateChanged",
-                    suppressHorizontalScroll=True,   
-                )
-            else:
-                st.info("Tidak ada pesan yang terdeteksi sebagai pertanyaan pada periode ini.")
+                },
+                update_on="stateChanged",
+                suppressHorizontalScroll=True,   
+            )
+        else:
+            st.info("Tidak ada pesan yang terdeteksi sebagai pertanyaan pada periode ini.")
 
-        with tab2:
+    with tab2:
+        if st.session_state['df_questions_with_topics'] is None:
+            # Lakukan analisis topik hanya jika belum ada di Session State
             df_questions_with_topics, summary_clusters = analyze_all_topics(df_questions)
+            st.session_state['df_questions_with_topics'] = df_questions_with_topics
+            st.session_state['summary_clusters'] = summary_clusters
+            st.rerun() # Rerun untuk menampilkan hasil analisis
+        else:
+            # Tampilkan hasil dari Session State
+            df_questions_with_topics = st.session_state['df_questions_with_topics']
+            summary_clusters = st.session_state['summary_clusters']
+            
+            # Tampilkan ringkasan topik
+            if df_questions_with_topics is not None:
+                topik_counter = Counter(df_questions_with_topics["final_topic"])
+                new_count = df_questions_with_topics.loc[
+                    df_questions_with_topics["final_topic"].str.lower().str.startswith("(new)")
+                ]["final_topic"].nunique()
+                
+                st.subheader("Ringkasan Topik Teratas")
+                st.markdown(f"**Jumlah topik baru terdeteksi: {new_count}**")
+                summary_data = [
+                    {"Topik": topik, "Jumlah Pertanyaan": count}
+                    for topik, count in topik_counter.most_common()
+                ]
+                st.dataframe(pd.DataFrame(summary_data), width="stretch")
 
-        with tab3:
-            st.subheader("Pertanyaan Representatif per Variasi Topik")
+                st.subheader("Detail Pertanyaan per Topik")
+                for topik, count in topik_counter.most_common():
+                    with st.expander(f"Topik: {topik} ({count} pertanyaan)"):
+                        questions_for_topic = df_questions_with_topics[
+                            df_questions_with_topics["final_topic"] == topik
+                        ]["text"].tolist()
 
-            if df_questions_with_topics is None or df_questions_with_topics.empty:
-                st.warning("Belum ada hasil analisis topik untuk dibuat representatifnya.")
-                st.stop()
+                        for q in questions_for_topic:
+                            st.markdown(f"- {q.strip()}")
 
-            st.markdown("Sistem akan memecah setiap topik menjadi **beberapa variasi pertanyaan**, lalu membuat **kalimat tanya formal** untuk setiap variasi tersebut.")
 
-            progress_bar = st.progress(0)
-            progress_text = st.empty()
+    with tab3:
+        st.subheader("Pertanyaan Representatif per Variasi Topik")
 
-            final_results = []
-            all_topics = df_questions_with_topics["final_topic"].unique().tolist()
+        if st.session_state['df_questions_with_topics'] is None or st.session_state['df_questions_with_topics'].empty:
+            st.warning("Belum ada hasil analisis topik untuk dibuat representatifnya. Silakan lihat Tab Analisis Topik terlebih dahulu.")
+        else:
+            df_questions_with_topics = st.session_state['df_questions_with_topics']
+            
+            if st.session_state['final_results'] is None:
+                # Lakukan komputasi berat (panggilan API) hanya jika belum ada di Session State
+                st.markdown("Sistem akan memecah setiap topik menjadi **beberapa variasi pertanyaan**, lalu membuat **kalimat tanya formal** untuk setiap variasi tersebut.")
 
-            for i, topik in enumerate(all_topics):
-                progress_text.text(f"Memproses topik {i+1}/{len(all_topics)}: {topik}")
+                progress_bar = st.progress(0)
+                progress_text = st.empty()
 
-                questions_in_topic = df_questions_with_topics[
-                    df_questions_with_topics["final_topic"] == topik
-                ]["text"].tolist()
+                final_results = []
+                all_topics = df_questions_with_topics["final_topic"].unique().tolist()
 
-                if not questions_in_topic:
-                    continue
+                for i, topik in enumerate(all_topics):
+                    progress_text.text(f"Memproses topik {i+1}/{len(all_topics)}: {topik}")
 
-                variations = find_question_variations(questions_in_topic, min_variation_size=3)
+                    questions_in_topic = df_questions_with_topics[
+                        df_questions_with_topics["final_topic"] == topik
+                    ]["text"].tolist()
 
-                for j, variation_questions in enumerate(variations):
-                    representative_sentence = generate_representative(variation_questions)
+                    if not questions_in_topic:
+                        continue
 
-                    final_results.append({
-                        "Topik Utama": topik,
-                        "Kalimat Representatif (AI)": representative_sentence, 
-                        "Jumlah Pertanyaan di Variasi": len(variation_questions),
-                        "Pertanyaan Asli": variation_questions 
-                    })
+                    variations = find_question_variations(questions_in_topic, min_variation_size=3)
 
-                progress_bar.progress((i + 1) / len(all_topics))
+                    for j, variation_questions in enumerate(variations):
+                        representative_sentence = generate_representative(variation_questions)
 
-            progress_bar.empty()
-            progress_text.empty()
+                        final_results.append({
+                            "Topik Utama": topik,
+                            "Kalimat Representatif (AI)": representative_sentence, 
+                            "Jumlah Pertanyaan di Variasi": len(variation_questions),
+                            "Pertanyaan Asli": variation_questions 
+                        })
 
+                    progress_bar.progress((i + 1) / len(all_topics))
+
+                progress_bar.empty()
+                progress_text.empty()
+                
+                st.session_state['final_results'] = final_results
+                st.rerun() # Rerun untuk menampilkan hasil representatif
+            
+            # Tampilkan hasil dari Session State
+            final_results = st.session_state['final_results']
+            
             if not final_results:
                 st.info("Tidak ada variasi pertanyaan yang cukup signifikan untuk dianalisis.")
-                st.stop()
+            else:
+                # Kelompokkan berdasarkan topik utama
+                df_results = pd.DataFrame(final_results)
+                grouped = df_results.groupby("Topik Utama")
 
-            # Kelompokkan berdasarkan topik utama
-            df_results = pd.DataFrame(final_results)
-            grouped = df_results.groupby("Topik Utama")
+                for topik_name, group_df in grouped:
+                    with st.expander(f"{topik_name}", expanded=False):
+                        for _, row in group_df.iterrows():
+                            st.markdown(
+                                f"""
+                                <div style="padding: 10px; border-left: 4px solid #E0935A; background-color: #f9f9f9; margin-bottom: 10px; border-radius: 5px;">
+                                    <strong>Kalimat Representatif:</strong> {row['Kalimat Representatif (AI)']} 
+                                    <span style="color: grey; font-size: 0.9em;">({row['Jumlah Pertanyaan di Variasi']} pertanyaan)</span>
+                                </div>
+                                """,
+                                unsafe_allow_html=True
+                            )
 
-            for topik_name, group_df in grouped:
-                with st.expander(f"{topik_name}", expanded=False):
-                    for _, row in group_df.iterrows():
-                        st.markdown(
-                            f"""
-                            <div style="padding: 10px; border-left: 4px solid #E0935A; background-color: #f9f9f9; margin-bottom: 10px; border-radius: 5px;">
-                                <strong>Kalimat Representatif:</strong> {row['Kalimat Representatif (AI)']} 
-                                <span style="color: grey; font-size: 0.9em;">({row['Jumlah Pertanyaan di Variasi']} pertanyaan)</span>
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
+                            with st.expander("Lihat pertanyaan asli yang menjadi dasar kalimat ini"):
+                                for q in row['Pertanyaan Asli']:
+                                    st.markdown(f"- {q.strip()}")
 
-                        with st.expander("Lihat pertanyaan asli yang menjadi dasar kalimat ini"):
-                            for q in row['Pertanyaan Asli']:
-                                st.markdown(f"- {q.strip()}")
+                # Tombol Download
+                output = io.BytesIO()
+                df_download = df_results.drop(columns=['Pertanyaan Asli'])
+                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                    df_download.to_excel(writer, sheet_name='Representatif', index=False)
+                output.seek(0)
 
-            # Tombol Download
-            output = io.BytesIO()
-            df_download = df_results.drop(columns=['Pertanyaan Asli'])
-            with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                df_download.to_excel(writer, sheet_name='Representatif', index=False)
-            output.seek(0)
-
-            st.download_button(
-                label="📥 Download Hasil Representatif (Excel)",
-                data=output,
-                file_name=f"hasil_representatif_variasi_{datetime.now(wib).strftime('%Y-%m-%d')}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
+                st.download_button(
+                    label="📥 Download Hasil Representatif (Excel)",
+                    data=output,
+                    file_name=f"hasil_representatif_variasi_{datetime.now(wib).strftime('%Y-%m-%d')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
             
