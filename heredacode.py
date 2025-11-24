@@ -560,7 +560,7 @@ def generate_representative(questions: List[str]) -> str:
     if not questions:
         return ""
 
-    API_URL = "https://cloudiessky-TinyLlama-1.1B-model.hf.space/api/predict"
+    API_URL = "https://cloudiessky-Phi-4-mini-instruct-model.hf.space/api/predict"
     headers = {"Content-Type": "application/json"}
     
     # Preprocessing untuk menghilangkan informasi sensitif
@@ -772,5 +772,6 @@ if __name__ == '__main__':
     df_merged = merge_similar_topics(df_result, use_embeddings=True)
     print("\n=== Setelah Merge Similar Topics ===")
     print(df_merged['final_topic'].value_counts())
+
 
 
