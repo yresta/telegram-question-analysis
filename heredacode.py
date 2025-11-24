@@ -23,6 +23,7 @@ DEFAULT_MODEL_NAME = 'paraphrase-multilingual-mpnet-base-v2'
 MIN_CLUSTER_SIZE = 8
 MAX_RECURSIVE_DEPTH = 3
 EMBEDDING_BATCH_SIZE = 128
+# model = SentenceTransformer(DEFAULT_MODEL_NAME) # Dihapus, diganti dengan get_sentence_model() yang di-cache
 
 IND_STOPWORDS = set("""
 yang dan di ke dari untuk dengan pada oleh dalam atas sebagai adalah ada itu ini atau tidak sudah belum bisa akan harus sangat juga karena jadi kalau namun tapi serta agar supaya sehingga maka lalu kemudian setelah sebelum hingga sampai pun saya kak bapak ibu pak
@@ -92,7 +93,7 @@ def is_unimportant_sentence(text: str) -> bool:
     punct_ratio = sum(1 for c in txt if not c.isalnum()) / max(len(txt), 1)
     if punct_ratio > 0.7:
         return True
-    
+
     unimportant_phrases = {
         "siap","noted","oke","ok","baik","sip","thanks","makasih","terima kasih",
         "iya","ya","oh","ohh","mantap","mantul","keren","wah","hebat",
@@ -309,7 +310,7 @@ def auto_topic_name(texts: List[str], top_n: int = 3) -> str:
                         "buat","hanya","bulan","yang","kenapa",
                         "kata","marah","mesti","kayak","begini",
                         "kakak","terus"}
-    
+
     for bad in BAD_TOKENS_EXTRA:
         name = re.sub(rf"\b{bad}\b", "", name, flags=re.I)
 
@@ -547,12 +548,12 @@ def find_question_variations(questions: List[str], min_variation_size: int = 3) 
         min_cluster_size=min_variation_size,
         max_depth=2
     )
-    
+
     filtered_variations = [v for v in variations if len(v) >= min_variation_size]
-    
+
     if not filtered_variations:
         return [questions]
-        
+
     return filtered_variations
 
 def generate_representative(questions: List[str]) -> str:
@@ -563,7 +564,7 @@ def generate_representative(questions: List[str]) -> str:
     headers = {"Content-Type": "application/json"}
 
     sample_questions = questions[:3]
-    
+
     # Preprocessing untuk menghilangkan informasi sensitif
     cleaned_questions = []
     for q in sample_questions:
@@ -626,7 +627,7 @@ Kalimat Tanya Representatif:
         representative_sentence = re.sub(r'\?[\s\-]*\?+$', '?', representative_sentence)
         representative_sentence = re.sub(r'^[\d\.\-\*\s"]+', '', representative_sentence).strip()
         representative_sentence = re.sub(r'\b(terima\s+kasih|mohon\s+maaf|tolong|info)\b', '', representative_sentence, flags=re.IGNORECASE)
-        
+
         # Pastikan hanya ada satu kalimat pertanyaan
         if '?' in representative_sentence:
             parts = representative_sentence.split('?')
@@ -637,7 +638,7 @@ Kalimat Tanya Representatif:
         rep = representative_sentence.lower().strip()
         rep = re.sub(r'\bapakah cara\b', '', rep).strip()
         rep = re.sub(r'\b(bagaimana cara\s+)+', 'bagaimana cara ', rep).strip()
-        
+
         # Logika tambahan: jika terdapat kata "cara", maka awalannya harus "Bagaimana cara"
         if "cara" in representative_sentence.lower():
             if not representative_sentence.lower().startswith("bagaimana cara"):
@@ -658,12 +659,12 @@ Kalimat Tanya Representatif:
 
         if not representative_sentence.endswith('?'):
             representative_sentence += '?'
-        
+
         # Jika hasil AI masih jelek, gunakan fallback cerdas
         if len(representative_sentence) < 15 or "contoh" in representative_sentence.lower() or "pertanyaan" in representative_sentence.lower():
             print("Hasil AI tidak memuaskan, menggunakan fallback cerdas...")
             return smart_embedding_fallback(questions)
-        
+
         return representative_sentence
 
     except Exception as e:
@@ -699,19 +700,19 @@ def smart_embedding_fallback(questions: List[str]) -> str:
         rephrased = re.sub(r'\b(knp|kenapa)\b', 'Mengapa', rephrased)
         rephrased = re.sub(r'\b(kak|min|admin|pak|bu)\b', '', rephrased) 
         rephrased = re.sub(r'\s+', ' ', rephrased).strip()
-        
+
         # Pastikan hanya ada satu kalimat pertanyaan
         if '?' in rephrased:
             parts = rephrased.split('?')
             if len(parts) > 1:
                 rephrased = parts[0] + '?'
-        
+
         if rephrased:
             rephrased = rephrased[0].upper() + rephrased[1:]
-        
+
         if not rephrased.endswith('?'):
             rephrased += '?'
-            
+
         return rephrased
 
     except Exception as e:
