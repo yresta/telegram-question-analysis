@@ -562,12 +562,10 @@ def generate_representative(questions: List[str]) -> str:
 
     API_URL = "https://cloudiessky-TinyLlama-1.1B-model.hf.space/api/predict"
     headers = {"Content-Type": "application/json"}
-
-    sample_questions = questions[:3]
     
     # Preprocessing untuk menghilangkan informasi sensitif
     cleaned_questions = []
-    for q in sample_questions:
+    for q in questions:
         # Hapus nomor PO, ID transaksi, dll.
         q_clean = re.sub(r'\bpo[a-z0-9]+\b', '[nomor pesanan]', q.lower())
         q_clean = re.sub(r'\b[a-z0-9]{8,}\b', '[ID]', q_clean)
@@ -774,4 +772,5 @@ if __name__ == '__main__':
     df_merged = merge_similar_topics(df_result, use_embeddings=True)
     print("\n=== Setelah Merge Similar Topics ===")
     print(df_merged['final_topic'].value_counts())
+
 
