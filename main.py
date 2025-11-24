@@ -800,7 +800,7 @@ if st.session_state['df_questions'] is not None:
                 progress_bar.progress(st.session_state['current_topic_index'] / total_topics)
         
                 # Rerun untuk melanjutkan topik berikutnya
-                st.experimental_rerun()
+                st.rerun()
         
             else:
                 # Semua topik sudah selesai
@@ -840,3 +840,4 @@ if st.session_state['df_questions'] is not None:
                     file_name=f"hasil_representatif_variasi_{datetime.now(wib).strftime('%Y-%m-%d')}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
+
