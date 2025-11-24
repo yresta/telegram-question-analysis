@@ -673,7 +673,6 @@ if st.button("Mulai Proses dan Analisis"):
     st.session_state['df_questions_with_topics'] = None
     st.session_state['final_results'] = None
 
-    st.success(f"Selesai scraping, ditemukan {len(df_questions)} pertanyaan.")
     st.rerun()
 
 # Tampilkan hasil jika data sudah ada di Session State
@@ -806,10 +805,7 @@ if st.session_state['df_questions'] is not None:
                 # Rerun untuk melanjutkan topik berikutnya
                 st.rerun()
     
-            else:
-                # Semua topik selesai
-                st.success(f"Semua {total_topics} topik sudah diproses!")
-                
+            else:                
                 df_results = pd.DataFrame(st.session_state['final_results'])
     
                 # Reset index topik hanya jika mau reload page baru
@@ -833,6 +829,9 @@ if st.session_state['df_questions'] is not None:
                             with st.expander("Lihat pertanyaan asli yang menjadi dasar kalimat ini"):
                                 for q in row['Pertanyaan Asli']:
                                     st.markdown(f"- {q.strip()}")
+
+                # Semua topik selesai
+                st.success(f"Semua {total_topics} topik sudah diproses!")
     
                 # Tombol Download Excel
                 output = io.BytesIO()
@@ -847,3 +846,4 @@ if st.session_state['df_questions'] is not None:
                     file_name=f"hasil_representatif_variasi_{datetime.now(wib).strftime('%Y-%m-%d')}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
+
