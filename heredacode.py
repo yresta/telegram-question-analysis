@@ -23,7 +23,6 @@ DEFAULT_MODEL_NAME = 'paraphrase-multilingual-mpnet-base-v2'
 MIN_CLUSTER_SIZE = 8
 MAX_RECURSIVE_DEPTH = 3
 EMBEDDING_BATCH_SIZE = 128
-# model = SentenceTransformer(DEFAULT_MODEL_NAME) # Dihapus, diganti dengan get_sentence_model() yang di-cache
 
 IND_STOPWORDS = set("""
 yang dan di ke dari untuk dengan pada oleh dalam atas sebagai adalah ada itu ini atau tidak sudah belum bisa akan harus sangat juga karena jadi kalau namun tapi serta agar supaya sehingga maka lalu kemudian setelah sebelum hingga sampai pun saya kak bapak ibu pak
@@ -560,12 +559,14 @@ def generate_representative(questions: List[str]) -> str:
     if not questions:
         return ""
 
-    API_URL = "https://cloudiessky-tinyllama-1koma1b-model.hf.space/api/predict"
+    API_URL = "https://cloudiessky-Phi-4-mini-instruct-model.hf.space/api/predict"
     headers = {"Content-Type": "application/json"}
+
+    sample_questions = questions[:3]
     
     # Preprocessing untuk menghilangkan informasi sensitif
     cleaned_questions = []
-    for q in questions:
+    for q in sample_questions:
         # Hapus nomor PO, ID transaksi, dll.
         q_clean = re.sub(r'\bpo[a-z0-9]+\b', '[nomor pesanan]', q.lower())
         q_clean = re.sub(r'\b[a-z0-9]{8,}\b', '[ID]', q_clean)
@@ -581,7 +582,7 @@ ANDA ADALAH SEORANG ANALIS LAYANAN PELANGGAN. TUGAS ANDA ADALAH MERINGKAS SEKUMP
 ATURAN PENTING:
 1. HASILKAN HANYA SATU KALIMAT TANYA YANG JELAS DAN RINGKAS
 2. JANGAN GABUNGKAN BEBERAPA PERTANYAAN DENGAN KATA "DAN" ATAU "ATAU"
-3. HINDARI MENYERTAKAN INFORMASI SPESIFIK SEPERTI NOMOR PO, LOKASI, ATAU NAMA
+3. HINDARI MENYERTAKAN INFORMASI SPESIFIK SEPERTI NOMOR PO, ID, LOKASI, ATAU NAMA
 4. FOKUS PADA MASALAH UMUM YANG DIHADAPI PENGGUNA
 5. GUNAKAN BAHASA FORMAL YANG MUDAH DIPAHAMI
 
@@ -772,7 +773,3 @@ if __name__ == '__main__':
     df_merged = merge_similar_topics(df_result, use_embeddings=True)
     print("\n=== Setelah Merge Similar Topics ===")
     print(df_merged['final_topic'].value_counts())
-
-
-
-
