@@ -691,18 +691,20 @@ def generate_representative(questions: List[str]) -> str:
         q_clean = re.sub(r'\bmin\b|kak\b|admin\b|pak\b|bu\b', '', q_clean)
         cleaned_questions.append(q_clean.strip())
 
-    # PROMPT YANG SUDAH DIOPTIMALKAN
     prompt = f"""
-ANDA ADALAH SEORANG ANALIS DATA TINGKAT TINGGI. TUGAS ANDA ADALAH MENGIDENTIFIKASI MASALAH UTAMA DARI SEKUMPULAN PERTANYAAN PENGGUNA DAN MERUMUSANKANNYA MENJADI SATU KALIMAT TANYA FORMAL YANG SANGAT GENERIK, RINGKAS, DAN PROFESIONAL.
+ANDA ADALAH ANALIS DATA. TUGAS ANDA ADALAH MERUMUSKAN SATU KALIMAT TANYA FORMAL YANG SANGAT GENERIK DAN PROFESIONAL BERDASARKAN INTI MASALAH DARI PERTANYAAN PENGGUNA.
 
-ATURAN PENTING:
-1. HASILKAN HANYA SATU KALIMAT TANYA. JANGAN BERIKAN PENJELASAN APAPUN.
-2. KALIMAT HARUS SANGAT GENERIK DAN TIDAK MENGANDUNG DETAIL SPESIFIK DARI PERTANYAAN ASLI.
-3. HINDARI SEMUA INFORMASI SPESIFIK (NOMOR PO, ID, LOKASI, NAMA TOKO, NOMINAL, TANGGAL).
-4. FOKUS PADA AKAR MASALAH (CONTOH: "Kendala Login" menjadi "Bagaimana cara mengatasi kendala login?").
-5. GUNAKAN BAHASA INDONESIA FORMAL DAN PROFESIONAL.
+LANGKAH-LANGKAH:
+1. IDENTIFIKASI 3 KATA KUNCI UTAMA (NOUN/VERB) YANG PALING MEREPRESENTASIKAN MASALAH DARI PERTANYAAN DI BAWAH.
+2. RUMUSKAN SATU KALIMAT TANYA FORMAL YANG MENGANDUNG KATA KUNCI TERSEBUT.
 
-BERIKUT ADALAH PERTANYAAN PENGGUNA YANG SUDAH DIBERSIHKAN. RUMUSKAN SATU KALIMAT TANYA REPRESENTATIF:
+ATURAN KETAT:
+- JANGAN ULANGI SATU PUN PERTANYAAN ASLI.
+- JANGAN GUNAKAN KATA-KATA INFORMAL (min, kak, pak, bu, dong, nih, dll).
+- KALIMAT HARUS SANGAT GENERIK.
+- HASILKAN HANYA KALIMAT TANYA AKHIR.
+
+PERTANYAAN PENGGUNA:
 - "{cleaned_questions[0]}"
 - "{cleaned_questions[1] if len(cleaned_questions) > 1 else '...'}"
 - "{cleaned_questions[2] if len(cleaned_questions) > 2 else '...'}"
@@ -796,32 +798,29 @@ def smart_embedding_fallback(questions: List[str]) -> str:
             q_clean = re.sub(r'\bmin\b|kak\b|admin\b|pak\b|bu\b', '', q_clean)
             cleaned_questions.append(q_clean.strip())
 
-        embeddings = sentence_model.encode(cleaned_questions, convert_to_tensor=True)
-        centroid = embeddings.mean(dim=0)
-        cosine_scores = util.cos_sim(centroid, embeddings)
-
-        most_similar_idx = cosine_scores.argmax().item()
-        most_representative_question = cleaned_questions[most_similar_idx]
-
-        rephrased = most_representative_question.strip().lower()
-        rephrased = re.sub(r'\b(gimana|gmn|bagaimana cara)\b', 'Bagaimana cara', rephrased)
-        rephrased = re.sub(r'\b(knp|kenapa)\b', 'Mengapa', rephrased)
-        rephrased = re.sub(r'\b(kak|min|admin|pak|bu)\b', '', rephrased) 
-        rephrased = re.sub(r'\s+', ' ', rephrased).strip()
-        
-        # Pastikan hanya ada satu kalimat pertanyaan
-        if '?' in rephrased:
-            parts = rephrased.split('?')
-            if len(parts) > 1:
-                rephrased = parts[0] + '?'
-        
-        if rephrased:
-            rephrased = rephrased[0].upper() + rephrased[1:]
-        
+        keywords = extract_representative_keywords(cleaned_questions, top_n=3)
+        keyword_phrase = ' '.join(keywords)
+        if not keyword_phrase:
+            return "Apa solusi untuk masalah yang dialami?"
+            
+        # Pola 1: Bagaimana cara mengatasi [kata kunci]?
+        if any(kw in keyword_phrase for kw in ["akses", "login", "upload", "verifikasi", "ganti", "ubah"]):
+            rephrased = f"Bagaimana cara mengatasi kendala {keyword_phrase}?"
+        # Pola 2: Kapan [kata kunci]?
+        elif any(kw in keyword_phrase for kw in ["cair", "pencairan", "transfer", "kirim"]):
+            rephrased = f"Kapan estimasi waktu {keyword_phrase}?"
+        # Pola 3: Mengapa [kata kunci]?
+        elif any(kw in keyword_phrase for kw in ["error", "gagal", "masalah", "kendala"]):
+            rephrased = f"Mengapa terjadi {keyword_phrase}?"
+        # Pola 4: Pertanyaan umum
+        else:
+            rephrased = f"Informasi atau prosedur terkait {keyword_phrase}?"
+            
+        rephrased = rephrased.replace("  ", " ").strip()
         if not rephrased.endswith('?'):
             rephrased += '?'
             
-        return rephrased
+        return rephrased[0].upper() + rephrased[1:]
 
     except Exception as e:
         print(f"Fallback cerdas juga gagal: {e}. Menggunakan fallback generik.")
@@ -882,5 +881,6 @@ if __name__ == '__main__':
     df_merged = merge_similar_topics(df_result, use_embeddings=True)
     print("\n=== Setelah Merge Similar Topics ===")
     print(df_merged['final_topic'].value_counts())
+
 
 
