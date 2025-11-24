@@ -762,53 +762,50 @@ if st.session_state['df_questions'] is not None:
         else:
             df_questions_with_topics = st.session_state['df_questions_with_topics']
         
-            # Inisialisasi session_state
-            if 'final_results' not in st.session_state or st.session_state['final_results'] is None:
+            # Inisialisasi session_state untuk progress
+            if 'final_results' not in st.session_state:
                 st.session_state['final_results'] = []
-            if 'current_topic_index' not in st.session_state or st.session_state['current_topic_index'] is None:
+            if 'current_topic_index' not in st.session_state:
                 st.session_state['current_topic_index'] = 0
         
             all_topics = df_questions_with_topics["final_topic"].unique().tolist()
             total_topics = len(all_topics)
-            batch_size = 3  # jumlah topik diproses per rerun
         
-            # Proses batch topik
+            # Hanya jalankan proses jika belum selesai semua
             if st.session_state['current_topic_index'] < total_topics:
                 progress_bar = st.progress(0)
                 progress_text = st.empty()
         
-                start_idx = st.session_state['current_topic_index']
-                end_idx = min(start_idx + batch_size, total_topics)
+                i = st.session_state['current_topic_index']
+                topik = all_topics[i]
+                progress_text.text(f"Memproses topik {i+1}/{total_topics}: {topik}")
         
-                for i in range(start_idx, end_idx):
-                    topik = all_topics[i]
-                    progress_text.text(f"Memproses topik {i+1}/{total_topics}: {topik}")
+                questions_in_topic = df_questions_with_topics[
+                    df_questions_with_topics["final_topic"] == topik
+                ]["text"].tolist()
         
-                    questions_in_topic = df_questions_with_topics[
-                        df_questions_with_topics["final_topic"] == topik
-                    ]["text"].tolist()
+                if questions_in_topic:
+                    variations = find_question_variations(questions_in_topic, min_variation_size=3)
+                    for variation_questions in variations:
+                        representative_sentence = generate_representative(variation_questions)
+                        st.session_state['final_results'].append({
+                            "Topik Utama": topik,
+                            "Kalimat Representatif (AI)": representative_sentence,
+                            "Jumlah Pertanyaan di Variasi": len(variation_questions),
+                            "Pertanyaan Asli": variation_questions
+                        })
         
-                    if questions_in_topic:
-                        variations = find_question_variations(questions_in_topic, min_variation_size=3)
-                        for variation_questions in variations:
-                            representative_sentence = generate_representative(variation_questions)
-                            st.session_state['final_results'].append({
-                                "Topik Utama": topik,
-                                "Kalimat Representatif (AI)": representative_sentence,
-                                "Jumlah Pertanyaan di Variasi": len(variation_questions),
-                                "Pertanyaan Asli": variation_questions
-                            })
+                # Update index topik
+                st.session_state['current_topic_index'] += 1
+                progress_bar.progress(st.session_state['current_topic_index'] / total_topics)
         
-                    st.session_state['current_topic_index'] += 1
-                    progress_bar.progress(st.session_state['current_topic_index'] / total_topics)
-        
-                # Rerun otomatis untuk lanjut batch berikutnya
+                # Rerun untuk melanjutkan topik berikutnya
                 st.experimental_rerun()
         
             else:
-                # Semua topik selesai
+                # Semua topik sudah selesai
                 st.success(f"Semua {total_topics} topik sudah diproses!")
-                st.session_state['current_topic_index'] = 0  # reset jika reload page
+                st.session_state['current_topic_index'] = 0  # reset jika mau reload page
                 df_results = pd.DataFrame(st.session_state['final_results'])
         
                 # Tampilkan hasil
@@ -830,7 +827,7 @@ if st.session_state['df_questions'] is not None:
                                 for q in row['Pertanyaan Asli']:
                                     st.markdown(f"- {q.strip()}")
         
-                # Tombol download
+                # Tombol Download Excel
                 output = io.BytesIO()
                 df_download = df_results.drop(columns=['Pertanyaan Asli'])
                 with pd.ExcelWriter(output, engine='openpyxl') as writer:
