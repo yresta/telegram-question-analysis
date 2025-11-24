@@ -23,7 +23,7 @@ DEFAULT_MODEL_NAME = 'paraphrase-multilingual-mpnet-base-v2'
 MIN_CLUSTER_SIZE = 8
 MAX_RECURSIVE_DEPTH = 3
 EMBEDDING_BATCH_SIZE = 128
-# model = SentenceTransformer(DEFAULT_MODEL_NAME) # Dihapus, diganti dengan get_sentence_model() yang di-cache
+API_URL = "https://cloudiessky-TinyLlama-1.1B-model.hf.space/api/predict"
 
 IND_STOPWORDS = set("""
 yang dan di ke dari untuk dengan pada oleh dalam atas sebagai adalah ada itu ini atau tidak sudah belum bisa akan harus sangat juga karena jadi kalau namun tapi serta agar supaya sehingga maka lalu kemudian setelah sebelum hingga sampai pun saya kak bapak ibu pak
@@ -556,16 +556,130 @@ def find_question_variations(questions: List[str], min_variation_size: int = 3) 
         
     return filtered_variations
 
+# def generate_representative(questions: List[str]) -> str:
+#     if not questions:
+#         return ""
+
+#     API_URL = "https://cloudiessky-Phi-4-mini-instruct-model.hf.space/api/predict"
+#     headers = {"Content-Type": "application/json"}
+
+#     sample_questions = questions[:3]
+    
+#     # Preprocessing untuk menghilangkan informasi sensitif
+#     cleaned_questions = []
+#     for q in sample_questions:
+#         # Hapus nomor PO, ID transaksi, dll.
+#         q_clean = re.sub(r'\bpo[a-z0-9]+\b', '[nomor pesanan]', q.lower())
+#         q_clean = re.sub(r'\b[a-z0-9]{8,}\b', '[ID]', q_clean)
+#         q_clean = re.sub(r'\b(kalimantan timur|jakarta|surabaya|dll)\b', '[lokasi]', q_clean)
+#         q_clean = re.sub(r'\b(toko|merchant|penyedia)\s+[a-z]+\b', '[nama toko]', q_clean)
+#         q_clean = re.sub(r'\bterima\s+kasih\b', '', q_clean)
+#         q_clean = re.sub(r'\bmin\b|kak\b|admin\b|pak\b|bu\b', '', q_clean)
+#         cleaned_questions.append(q_clean.strip())
+
+#     prompt = f"""
+# ANDA ADALAH SEORANG ANALIS LAYANAN PELANGGAN. TUGAS ANDA ADALAH MERINGKAS SEKUMPULAN PERTANYAAN PENGGUNA MENJADI SATU KALIMAT TANYA FORMAL YANG MENCERMIKAN INTI MASALAH.
+
+# ATURAN PENTING:
+# 1. HASILKAN HANYA SATU KALIMAT TANYA YANG JELAS DAN RINGKAS
+# 2. JANGAN GABUNGKAN BEBERAPA PERTANYAAN DENGAN KATA "DAN" ATAU "ATAU"
+# 3. HINDARI MENYERTAKAN INFORMASI SPESIFIK SEPERTI NOMOR PO, ID, LOKASI, ATAU NAMA
+# 4. FOKUS PADA MASALAH UMUM YANG DIHADAPI PENGGUNA
+# 5. GUNAKAN BAHASA FORMAL YANG MUDAH DIPAHAMI
+
+# CONTOH:
+# ---
+# Pertanyaan Pengguna:
+# - "admin solusinya bagaimana?"
+# - "min ini maksudnya bagaimana ya?"
+
+# Kalimat Tanya Representatif:
+# Bagaimana cara mengatasi kendala yang sedang terjadi?
+# ---
+
+# SEKARANG, BUAT SATU KALIMAT TANYA FORMAL UNTUK PERTANYAAN-PERTANYAAN BERIKUT:
+# Pertanyaan Pengguna:
+# - "{cleaned_questions[0]}"
+# - "{cleaned_questions[1] if len(cleaned_questions) > 1 else '...'}"
+# - "{cleaned_questions[2] if len(cleaned_questions) > 2 else '...'}"
+
+# Kalimat Tanya Representatif:
+# """
+
+#     payload = {
+#         "prompt": prompt,
+#         "max_new_tokens": 50,
+#         "temperature": 1e-5,
+#         "do_sample": False
+#     }
+
+#     try:
+#         response = requests.post(API_URL, headers=headers, json=payload)
+#         response.raise_for_status()
+#         result = response.json()
+#         representative_sentence = result["response"].strip()
+
+#         prefixes_to_remove = ["Kalimat Tanya Representatif:", "Representatif:", "Jawaban:", "Answer:", "Pertanyaan:", "Contoh:"]
+#         for pref in prefixes_to_remove:
+#             if representative_sentence.lower().startswith(pref.lower()):
+#                 representative_sentence = representative_sentence[len(pref):].strip()
+
+#         representative_sentence = re.sub(r'\?[\s\-]*\?+$', '?', representative_sentence)
+#         representative_sentence = re.sub(r'^[\d\.\-\*\s"]+', '', representative_sentence).strip()
+#         representative_sentence = re.sub(r'\b(terima\s+kasih|mohon\s+maaf|tolong|info)\b', '', representative_sentence, flags=re.IGNORECASE)
+        
+#         # Pastikan hanya ada satu kalimat pertanyaan
+#         if '?' in representative_sentence:
+#             parts = representative_sentence.split('?')
+#             if len(parts) > 1:
+#                 representative_sentence = parts[0] + '?'
+
+#         representative_sentence = re.sub(r'\s+', ' ', representative_sentence).strip()
+#         rep = representative_sentence.lower().strip()
+#         rep = re.sub(r'\bapakah cara\b', '', rep).strip()
+#         rep = re.sub(r'\b(bagaimana cara\s+)+', 'bagaimana cara ', rep).strip()
+        
+#         # Logika tambahan: jika terdapat kata "cara", maka awalannya harus "Bagaimana cara"
+#         if "cara" in representative_sentence.lower():
+#             if not representative_sentence.lower().startswith("bagaimana cara"):
+#                 representative_sentence = re.sub(
+#                     r'^(bagaimana|gimana|gmna|gmn|mengapa|kenapa)\s+', 
+#                     '', 
+#                     representative_sentence, 
+#                     flags=re.IGNORECASE
+#                 ).strip()
+#                 representative_sentence = "Bagaimana cara " + representative_sentence
+
+#         # Hapus kalimat yang terlalu umum
+#         if "bantuan" in rep.lower() or "solusi" in rep.lower():
+#             rep = "Apa solusi untuk masalah ini?"
+
+#         if representative_sentence:
+#             representative_sentence = representative_sentence[0].upper() + representative_sentence[1:]
+
+#         if not representative_sentence.endswith('?'):
+#             representative_sentence += '?'
+        
+#         # Jika hasil AI masih jelek, gunakan fallback cerdas
+#         if len(representative_sentence) < 15 or "contoh" in representative_sentence.lower() or "pertanyaan" in representative_sentence.lower():
+#             print("Hasil AI tidak memuaskan, menggunakan fallback cerdas...")
+#             return smart_embedding_fallback(questions)
+        
+#         return representative_sentence
+
+#     except Exception as e:
+#         print(f"Error during API call: {e}. Menggunakan fallback cerdas.")
+#         return smart_embedding_fallback(questions)
+
 def generate_representative(questions: List[str]) -> str:
     if not questions:
         return ""
 
-    API_URL = "https://cloudiessky-Phi-4-mini-instruct-model.hf.space/api/predict"
     headers = {"Content-Type": "application/json"}
 
     sample_questions = questions[:3]
     
-    # Preprocessing untuk menghilangkan informasi sensitif
+    # Preprocessing untuk menghilangkan informasi sensitif (TETAP SAMA)
     cleaned_questions = []
     for q in sample_questions:
         # Hapus nomor PO, ID transaksi, dll.
@@ -577,28 +691,18 @@ def generate_representative(questions: List[str]) -> str:
         q_clean = re.sub(r'\bmin\b|kak\b|admin\b|pak\b|bu\b', '', q_clean)
         cleaned_questions.append(q_clean.strip())
 
+    # PROMPT YANG SUDAH DIOPTIMALKAN
     prompt = f"""
-ANDA ADALAH SEORANG ANALIS LAYANAN PELANGGAN. TUGAS ANDA ADALAH MERINGKAS SEKUMPULAN PERTANYAAN PENGGUNA MENJADI SATU KALIMAT TANYA FORMAL YANG MENCERMIKAN INTI MASALAH.
+ANDA ADALAH SEORANG ANALIS DATA TINGKAT TINGGI. TUGAS ANDA ADALAH MENGIDENTIFIKASI MASALAH UTAMA DARI SEKUMPULAN PERTANYAAN PENGGUNA DAN MERUMUSANKANNYA MENJADI SATU KALIMAT TANYA FORMAL YANG SANGAT GENERIK, RINGKAS, DAN PROFESIONAL.
 
 ATURAN PENTING:
-1. HASILKAN HANYA SATU KALIMAT TANYA YANG JELAS DAN RINGKAS
-2. JANGAN GABUNGKAN BEBERAPA PERTANYAAN DENGAN KATA "DAN" ATAU "ATAU"
-3. HINDARI MENYERTAKAN INFORMASI SPESIFIK SEPERTI NOMOR PO, ID, LOKASI, ATAU NAMA
-4. FOKUS PADA MASALAH UMUM YANG DIHADAPI PENGGUNA
-5. GUNAKAN BAHASA FORMAL YANG MUDAH DIPAHAMI
+1. HASILKAN HANYA SATU KALIMAT TANYA. JANGAN BERIKAN PENJELASAN APAPUN.
+2. KALIMAT HARUS SANGAT GENERIK DAN TIDAK MENGANDUNG DETAIL SPESIFIK DARI PERTANYAAN ASLI.
+3. HINDARI SEMUA INFORMASI SPESIFIK (NOMOR PO, ID, LOKASI, NAMA TOKO, NOMINAL, TANGGAL).
+4. FOKUS PADA AKAR MASALAH (CONTOH: "Kendala Login" menjadi "Bagaimana cara mengatasi kendala login?").
+5. GUNAKAN BAHASA INDONESIA FORMAL DAN PROFESIONAL.
 
-CONTOH:
----
-Pertanyaan Pengguna:
-- "admin solusinya bagaimana?"
-- "min ini maksudnya bagaimana ya?"
-
-Kalimat Tanya Representatif:
-Bagaimana cara mengatasi kendala yang sedang terjadi?
----
-
-SEKARANG, BUAT SATU KALIMAT TANYA FORMAL UNTUK PERTANYAAN-PERTANYAAN BERIKUT:
-Pertanyaan Pengguna:
+BERIKUT ADALAH PERTANYAAN PENGGUNA YANG SUDAH DIBERSIHKAN. RUMUSKAN SATU KALIMAT TANYA REPRESENTATIF:
 - "{cleaned_questions[0]}"
 - "{cleaned_questions[1] if len(cleaned_questions) > 1 else '...'}"
 - "{cleaned_questions[2] if len(cleaned_questions) > 2 else '...'}"
@@ -608,17 +712,19 @@ Kalimat Tanya Representatif:
 
     payload = {
         "prompt": prompt,
-        "max_new_tokens": 50,
-        "temperature": 1e-5,
+        "max_new_tokens": 50, # Cukup 50 token
+        "temperature": 1e-5, # Sangat deterministik
         "do_sample": False
     }
 
     try:
+        # Gunakan API_URL yang sudah didefinisikan di atas
         response = requests.post(API_URL, headers=headers, json=payload)
         response.raise_for_status()
         result = response.json()
         representative_sentence = result["response"].strip()
 
+        # Logika pembersihan (TETAP SAMA)
         prefixes_to_remove = ["Kalimat Tanya Representatif:", "Representatif:", "Jawaban:", "Answer:", "Pertanyaan:", "Contoh:"]
         for pref in prefixes_to_remove:
             if representative_sentence.lower().startswith(pref.lower()):
@@ -652,7 +758,9 @@ Kalimat Tanya Representatif:
 
         # Hapus kalimat yang terlalu umum
         if "bantuan" in rep.lower() or "solusi" in rep.lower():
-            rep = "Apa solusi untuk masalah ini?"
+            # Jika hasil AI masih terlalu umum, gunakan fallback cerdas
+            print("Hasil AI terlalu umum, menggunakan fallback cerdas...")
+            return smart_embedding_fallback(questions)
 
         if representative_sentence:
             representative_sentence = representative_sentence[0].upper() + representative_sentence[1:]
@@ -774,4 +882,5 @@ if __name__ == '__main__':
     df_merged = merge_similar_topics(df_result, use_embeddings=True)
     print("\n=== Setelah Merge Similar Topics ===")
     print(df_merged['final_topic'].value_counts())
+
 
