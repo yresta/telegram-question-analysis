@@ -594,7 +594,9 @@ KETENTUAN:
 TUGAS:
 Buat SATU kalimat tanya yang mewakili INTI dari pertanyaan berikut:
 Pertanyaan Pengguna:
-{ "\n- ".join(cleaned_questions)}
+- "{cleaned_questions[0]}"
+- "{cleaned_questions[1] if len(cleaned_questions) > 1 else '...'}"
+- "{cleaned_questions[2] if len(cleaned_questions) > 2 else '...'}"
 
 Kalimat Tanya Representatif:
 """
@@ -792,21 +794,3 @@ if __name__ == '__main__':
     df_merged = merge_similar_topics(df_result, use_embeddings=True)
     print("\n=== Setelah Merge Similar Topics ===")
     print(df_merged['final_topic'].value_counts())
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
