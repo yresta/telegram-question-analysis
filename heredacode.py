@@ -692,54 +692,6 @@ def smart_embedding_fallback(questions: List[str]) -> str:
     except Exception as e:
         print(f"Fallback cerdas juga gagal: {e}. Menggunakan fallback generik.")
         return "Apa solusi untuk masalah yang dialami?"
-
-def smart_embedding_fallback(questions: List[str]) -> str:
-    if not questions:
-        return ""
-    try:
-        sentence_model = get_sentence_model()
-
-        # Preprocessing to remove sensitive information
-        cleaned_questions = []
-        for q in questions:
-            q_clean = re.sub(r'\bpo[a-z0-9]+\b', '[nomor pesanan]', q.lower())
-            q_clean = re.sub(r'\b[a-z0-9]{8,}\b', '[ID]', q_clean)
-            q_clean = re.sub(r'\b(kalimantan timur|jakarta|surabaya|dll)\b', '[lokasi]', q_clean)
-            q_clean = re.sub(r'\b(toko|merchant|penyedia)\s+[a-z]+\b', '[nama toko]', q_clean)
-            q_clean = re.sub(r'\bterima\s+kasih\b', '', q_clean)
-            q_clean = re.sub(r'\b(min|kak|admin|pak|bu)\b', '', q_clean)
-            cleaned_questions.append(q_clean.strip())
-
-        embeddings = sentence_model.encode(cleaned_questions, convert_to_tensor=True)
-        centroid = embeddings.mean(dim=0)
-        cosine_scores = util.cos_sim(centroid, embeddings)
-
-        most_similar_idx = cosine_scores.argmax().item()
-        most_representative_question = cleaned_questions[most_similar_idx]
-
-        rephrased = most_representative_question.strip().lower()
-        rephrased = re.sub(r'\b(gimana|gmn|bagaimana cara)\b', 'Bagaimana cara', rephrased)
-        rephrased = re.sub(r'\b(knp|kenapa)\b', 'Mengapa', rephrased)
-        rephrased = re.sub(r'\b(kak|min|admin|pak|bu)\b', '', rephrased) 
-        rephrased = re.sub(r'\s+', ' ', rephrased).strip()
-
-        # Ensure only one question mark at the end
-        if '?' in rephrased:
-            parts = rephrased.split('?')
-            if len(parts) > 1:
-                rephrased = parts[0] + '?'
-
-        if rephrased:
-            rephrased = rephrased[0].upper() + rephrased[1:]
-
-        if not rephrased.endswith('?'):
-            rephrased += '?'
-
-        return rephrased
-
-    except Exception as e:
-        print(f"Fallback cerdas juga gagal: {e}. Menggunakan fallback generik.")
-        return "Apa solusi untuk masalah yang dialami?"
     
 # Run
 if __name__ == '__main__':
@@ -796,6 +748,7 @@ if __name__ == '__main__':
     df_merged = merge_similar_topics(df_result, use_embeddings=True)
     print("\n=== Setelah Merge Similar Topics ===")
     print(df_merged['final_topic'].value_counts())
+
 
 
 
