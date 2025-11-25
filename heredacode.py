@@ -584,13 +584,15 @@ Anda adalah model yang bertugas membuat SATU kalimat tanya representatif.
 KETENTUAN:
 1. Kalimat HARUS berasal dari pola pertanyaan pengguna. Dilarang menambahkan konteks baru.
 2. TIDAK boleh menebak hal yang tidak ada di data.
-3. Hanya gunakan pola yang PALING DOMINAN dari seluruh contoh.
+3. Gunakan pola yang PALING DOMINAN dan SPESIFIK dari seluruh contoh.
 4. Jangan menyimpulkan lokasi, wilayah, atau data sensitif.
 5. Gunakan bahasa formal, satu kalimat, dan harus diakhiri tanda tanya.
-6. **JANGAN MENGGUNAKAN KATA "ANDA", "KAMU", "MU", "MEREKA", atau kata ganti orang lain dalam kalimat. Fokuslah pada pertanyaan secara umum.**
+6. FOKUS pada INTI PERTANYAAN, bukan pengejaan atau sapaan.
+7. HINDARI kalimat umum seperti "ada yang pernah", "bagaimana ya", "tolong bantu"
+8. Jika tidak bisa membuat kalimat representatif yang spesifik, tulis: "PERTANYAAN TERLALU BERVARIASI"
 
 TUGAS:
-Buat SATU kalimat tanya yang mewakili inti dari pertanyaan berikut:
+Buat SATU kalimat tanya yang mewakili INTI dari pertanyaan berikut:
 Pertanyaan Pengguna:
 { "\n- ".join(cleaned_questions)}
 
@@ -790,6 +792,7 @@ if __name__ == '__main__':
     df_merged = merge_similar_topics(df_result, use_embeddings=True)
     print("\n=== Setelah Merge Similar Topics ===")
     print(df_merged['final_topic'].value_counts())
+
 
 
 
