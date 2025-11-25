@@ -708,6 +708,7 @@ def find_question_variations(questions: List[str], min_variation_size: int = 3) 
     if not questions or len(questions) < min_variation_size * 2:
         return [questions]
 
+    # Perform recursive clustering for better grouping of similar questions
     variations = recursive_clustering(
         texts=questions,
         min_cluster_size=min_variation_size,
@@ -721,6 +722,7 @@ def find_question_variations(questions: List[str], min_variation_size: int = 3) 
 
     return filtered_variations
 
+
 def generate_representative(questions: List[str]) -> str:
     if not questions:
         return ""
@@ -728,39 +730,37 @@ def generate_representative(questions: List[str]) -> str:
     API_URL = "https://cloudiessky-Phi-4-mini-instruct-model.hf.space/api/predict"
     headers = {"Content-Type": "application/json"}
 
-    # Pilih pertanyaan dengan panjang yang lebih informatif
-    sample_questions = sorted(questions, key=lambda q: len(q), reverse=True)[:5]
+    sample_questions = questions[:8]
 
-    # Preprocessing untuk menghilangkan informasi sensitif
+    # Preprocessing to remove sensitive information
     cleaned_questions = []
     for q in sample_questions:
-        q_clean = re.sub(r'\bpo[-\s]*\d+\b', '[nomor_pesanan]', q.lower())
-        q_clean = re.sub(r'\b\d{6,}\b', '[id]', q_clean)
-        q_clean = re.sub(r'\b(kalimantan timur|jakarta|surabaya|dll)\b', '[lokasi]', q_clean)
-        q_clean = re.sub(r'\b(toko|merchant|penyedia)\s+[a-z]+\b', '[nama toko]', q_clean)
-        q_clean = re.sub(r'\bterima\s+kasih\b', '', q_clean)
-        q_clean = re.sub(r'\bmin\b|kak\b|admin\b|pak\b|bu\b', '', q_clean)
+        q_clean = re.sub(r'\bpo[a-z0-9]+\b', '[nomor pesanan]', q.lower())  # Replace PO numbers
+        q_clean = re.sub(r'\b[a-z0-9]{8,}\b', '[ID]', q_clean)  # Replace IDs
+        q_clean = re.sub(r'\b(kalimantan timur|jakarta|surabaya|dll)\b', '[lokasi]', q_clean)  # Replace locations
+        q_clean = re.sub(r'\b(toko|merchant|penyedia)\s+[a-z]+\b', '[nama toko]', q_clean)  # Replace store names
+        q_clean = re.sub(r'\bterima\s+kasih\b', '', q_clean)  # Remove "terima kasih"
+        q_clean = re.sub(r'\b(min|kak|admin|pak|bu)\b', '', q_clean)  # Remove polite forms
         cleaned_questions.append(q_clean.strip())
 
     prompt = f"""
+Anda adalah model yang bertugas membuat SATU kalimat tanya representatif.
+
+KETENTUAN:
+1. Kalimat HARUS berasal dari pola pertanyaan pengguna. Dilarang menambahkan konteks baru.
+2. TIDAK boleh menebak hal yang tidak ada di data.
+3. Hanya gunakan pola yang PALING DOMINAN dari seluruh contoh.
+4. Jangan menyimpulkan lokasi, wilayah, atau data sensitif.
+5. Gunakan bahasa formal, satu kalimat, dan harus diakhiri tanda tanya.
+
 TUGAS:
-Buat SATU kalimat tanya representatif yang merangkum pola pertanyaan berikut.
-
-ATURAN:
-1. Gunakan pola pertanyaan yang PALING SERING MUNCUL.
-2. Tidak menebak detail yang tidak ada.
-3. Tidak membuat konteks baru.
-4. Kalimat harus fokus pada inti tema yang muncul berulang.
-5. Satu kalimat. Bahasa formal. Akhiri dengan tanda tanya.
-
-DAFTAR PERTANYAAN:
+Buat SATU kalimat tanya yang mewakili inti dari pertanyaan berikut:
+Pertanyaan Pengguna:
 - "{cleaned_questions[0]}"
 - "{cleaned_questions[1] if len(cleaned_questions) > 1 else '...'}"
 - "{cleaned_questions[2] if len(cleaned_questions) > 2 else '...'}"
-- "{cleaned_questions[3] if len(cleaned_questions) > 3 else '...'}"
-- "{cleaned_questions[4] if len(cleaned_questions) > 4 else '...'}"
 
-HASIL:
+Kalimat Tanya Representatif:
 """
 
     payload = {
@@ -776,20 +776,39 @@ HASIL:
         result = response.json()
         representative_sentence = result["response"].strip()
 
-        # Cleanup output from AI
-        representative_sentence = re.sub(r'^[\-\d\.\s]+', '', representative_sentence)
-        representative_sentence = re.sub(r'\s*\?\s*$', '?', representative_sentence)
-        representative_sentence = re.sub(r'\s+', ' ', representative_sentence).strip()
+        prefixes_to_remove = ["Kalimat Tanya Representatif:", "Representatif:", "Jawaban:", "Answer:", "Pertanyaan:", "Contoh:"]
+        for pref in prefixes_to_remove:
+            if representative_sentence.lower().startswith(pref.lower()):
+                representative_sentence = representative_sentence[len(pref):].strip()
 
-        # Pastikan hanya ada satu kalimat pertanyaan
+        representative_sentence = re.sub(r'\?[\s\-]*\?+$', '?', representative_sentence)  # Normalize duplicate question marks
+        representative_sentence = re.sub(r'^[\d\.\-\*\s"]+', '', representative_sentence).strip()  # Clean extra symbols
+        representative_sentence = re.sub(r'\b(terima\s+kasih|mohon\s+maaf|tolong|info)\b', '', representative_sentence, flags=re.IGNORECASE)
+
+        # Ensure only one question mark at the end
         if '?' in representative_sentence:
             parts = representative_sentence.split('?')
             if len(parts) > 1:
                 representative_sentence = parts[0] + '?'
 
-        representative_sentence = representative_sentence.capitalize()
+        representative_sentence = re.sub(r'\s+', ' ', representative_sentence).strip()
+        rep = representative_sentence.lower().strip()
 
-        # Jika hasil AI masih jelek, gunakan fallback cerdas
+        # Add logic for common questions with "cara"
+        if "cara" in representative_sentence.lower():
+            if not representative_sentence.lower().startswith("bagaimana cara"):
+                representative_sentence = re.sub(
+                    r'^(bagaimana|gimana|gmna|gmn|mengapa|kenapa)\s+', '', representative_sentence, flags=re.IGNORECASE).strip()
+                representative_sentence = "Bagaimana cara " + representative_sentence
+
+        # Ensure it starts with a capital letter
+        if representative_sentence:
+            representative_sentence = representative_sentence[0].upper() + representative_sentence[1:]
+
+        if not representative_sentence.endswith('?'):
+            representative_sentence += '?'
+
+        # Fallback mechanism if the AI result is not satisfactory
         if len(representative_sentence) < 15 or "contoh" in representative_sentence.lower() or "pertanyaan" in representative_sentence.lower():
             print("Hasil AI tidak memuaskan, menggunakan fallback cerdas...")
             return smart_embedding_fallback(questions)
@@ -806,15 +825,15 @@ def smart_embedding_fallback(questions: List[str]) -> str:
     try:
         sentence_model = get_sentence_model()
 
-        # Preprocessing untuk menghilangkan informasi sensitif
+        # Preprocessing to remove sensitive information
         cleaned_questions = []
         for q in questions:
-            q_clean = re.sub(r'\bpo[-\s]*\d+\b', '[nomor_pesanan]', q.lower())
-            q_clean = re.sub(r'\b\d{6,}\b', '[id]', q_clean)
+            q_clean = re.sub(r'\bpo[a-z0-9]+\b', '[nomor pesanan]', q.lower())
+            q_clean = re.sub(r'\b[a-z0-9]{8,}\b', '[ID]', q_clean)
             q_clean = re.sub(r'\b(kalimantan timur|jakarta|surabaya|dll)\b', '[lokasi]', q_clean)
             q_clean = re.sub(r'\b(toko|merchant|penyedia)\s+[a-z]+\b', '[nama toko]', q_clean)
             q_clean = re.sub(r'\bterima\s+kasih\b', '', q_clean)
-            q_clean = re.sub(r'\bmin\b|kak\b|admin\b|pak\b|bu\b', '', q_clean)
+            q_clean = re.sub(r'\b(min|kak|admin|pak|bu)\b', '', q_clean)
             cleaned_questions.append(q_clean.strip())
 
         embeddings = sentence_model.encode(cleaned_questions, convert_to_tensor=True)
@@ -830,7 +849,7 @@ def smart_embedding_fallback(questions: List[str]) -> str:
         rephrased = re.sub(r'\b(kak|min|admin|pak|bu)\b', '', rephrased) 
         rephrased = re.sub(r'\s+', ' ', rephrased).strip()
 
-        # Pastikan hanya ada satu kalimat pertanyaan
+        # Ensure only one question mark at the end
         if '?' in rephrased:
             parts = rephrased.split('?')
             if len(parts) > 1:
@@ -903,6 +922,7 @@ if __name__ == '__main__':
     df_merged = merge_similar_topics(df_result, use_embeddings=True)
     print("\n=== Setelah Merge Similar Topics ===")
     print(df_merged['final_topic'].value_counts())
+
 
 
 
