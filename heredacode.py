@@ -753,7 +753,7 @@ def preprocess_questions(questions: List[str]) -> List[str]:
         cleaned_questions.append(q_clean.strip())
     return cleaned_questions
 
-def generate_representative_with_mpnet(questions: List[str]) -> str:
+def generate_representative(questions: List[str]) -> str:
     if not questions:
         return ""
 
@@ -836,6 +836,7 @@ if __name__ == '__main__':
     df_merged = merge_similar_topics(df_result, use_embeddings=True)
     print("\n=== Setelah Merge Similar Topics ===")
     print(df_merged['final_topic'].value_counts())
+
 
 
 
