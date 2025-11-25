@@ -569,22 +569,24 @@ def generate_representative(questions: List[str]) -> str:
     cleaned_questions = []
     for q in sample_questions:
         # Hapus nomor PO, ID transaksi, dll.
-        q_clean = re.sub(r'\bpo[a-z0-9]+\b', '', q.lower())
-        q_clean = re.sub(r'\b[a-z0-9]{8,}\b', '', q_clean)
+        q_clean = re.sub(r'\bpo[a-z0-9]+\b', '[nomor pesanan]', q.lower())
+        q_clean = re.sub(r'\b[a-z0-9]{8,}\b', '[ID]', q_clean)
+        q_clean = re.sub(r'\b(kalimantan timur|jakarta|surabaya|dll)\b', '[lokasi]', q_clean)
+        q_clean = re.sub(r'\b(toko|merchant|penyedia)\s+[a-z]+\b', '[nama toko]', q_clean)
         q_clean = re.sub(r'\bterima\s+kasih\b', '', q_clean)
         q_clean = re.sub(r'\bmin\b|kak\b|admin\b|pak\b|bu\b', '', q_clean)
         cleaned_questions.append(q_clean.strip())
 
     prompt = f"""
-Anda adalah model yang bertugas membuat SATU kalimat tanya representatif.
+Anda adalah model yang bertugas membuat SATU kalimat tanya representatif dari kumpulan pertanyaan pada satu variasi.
 
 KETENTUAN:
-1. Kalimat HARUS berasal dari pola pertanyaan pengguna. Dilarang menambahkan konteks baru.
-2. TIDAK boleh menebak hal yang tidak ada di data.
-3. Hanya gunakan pola yang PALING DOMINAN dari seluruh contoh.
+1. BACA DAN PAHAMI MAKSUD dari inti pertanyaan yang ditanyakan. 
+2. Kalimat HARUS berasal dari pola pertanyaan pengguna. Dilarang menambahkan konteks baru.
+3. TIDAK boleh menebak hal yang tidak ada di data.
 4. Jangan menyimpulkan lokasi, wilayah, atau data sensitif.
-5. Gunakan bahasa formal, satu kalimat, dan harus diakhiri tanda tanya.
-6. Sesuaikan awalan kalimatnya berdasarkan makna kalimat agar padu (Apakah, Bagaimana, Kenapa, Mengapa, Berapa, Apa, Kapan, dll.)
+5. Gunakan bahasa formal, mudah dipahami, satu kalimat, dan harus diakhiri tanda tanya.
+6. Sesuaikan awalan kalimatnya berdasarkan makna kalimat agar padu (Apakah, Bagaimana, Kenapa, Mengapa, Berapa, Apa, Kapan, dll.). TIDAK BOLEH DOUBLE.
 
 TUGAS:
 Buat SATU kalimat tanya yang mewakili inti dari pertanyaan berikut:
@@ -633,9 +635,9 @@ Kalimat Tanya Representatif:
         if not representative_sentence.endswith('?'):
             representative_sentence += '?'
 
-        # Jika hasil AI masih jelek, gunakan fallback cerdas
+        # Jika hasil masih jelek, gunakan fallback cerdas
         if len(representative_sentence) < 15 or "contoh" in representative_sentence.lower() or "pertanyaan" in representative_sentence.lower():
-            print("Hasil AI tidak memuaskan, menggunakan fallback cerdas...")
+            print("Hasil tidak memuaskan, menggunakan fallback cerdas...")
             return smart_embedding_fallback(questions)
 
         return representative_sentence
@@ -652,12 +654,16 @@ def smart_embedding_fallback(questions: List[str]) -> str:
 
         # Preprocessing untuk menghilangkan informasi sensitif
         cleaned_questions = []
-        for q in questions:
-            q_clean = re.sub(r'\bpo[a-z0-9]+\b', '', q.lower())
-            q_clean = re.sub(r'\b[a-z0-9]{8,}\b', '',  q_clean)
+        for q in sample_questions:
+            # Hapus nomor PO, ID transaksi, dll.
+            q_clean = re.sub(r'\bpo[a-z0-9]+\b', '[nomor pesanan]', q.lower())
+            q_clean = re.sub(r'\b[a-z0-9]{8,}\b', '[ID]', q_clean)
+            q_clean = re.sub(r'\b(kalimantan timur|jakarta|surabaya|dll)\b', '[lokasi]', q_clean)
+            q_clean = re.sub(r'\b(toko|merchant|penyedia)\s+[a-z]+\b', '[nama toko]', q_clean)
             q_clean = re.sub(r'\bterima\s+kasih\b', '', q_clean)
             q_clean = re.sub(r'\bmin\b|kak\b|admin\b|pak\b|bu\b', '', q_clean)
             cleaned_questions.append(q_clean.strip())
+
 
         embeddings = sentence_model.encode(cleaned_questions, convert_to_tensor=True)
         centroid = embeddings.mean(dim=0)
@@ -745,6 +751,7 @@ if __name__ == '__main__':
     df_merged = merge_similar_topics(df_result, use_embeddings=True)
     print("\n=== Setelah Merge Similar Topics ===")
     print(df_merged['final_topic'].value_counts())
+
 
 
 
