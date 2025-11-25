@@ -569,10 +569,10 @@ def generate_representative(questions: List[str]) -> str:
     cleaned_questions = []
     for q in sample_questions:
         # Hapus nomor PO, ID transaksi, dll.
-        q_clean = re.sub(r'\bpo[a-z0-9]+\b', '[nomor pesanan]', q.lower())
-        q_clean = re.sub(r'\b[a-z0-9]{8,}\b', '[ID]', q_clean)
+        q_clean = re.sub(r'\bpo[a-z0-9]+\b', q.lower())
+        q_clean = re.sub(r'\b[a-z0-9]{8,}\b', q_clean)
         q_clean = re.sub(r'\b(kalimantan timur|jakarta|surabaya|dll)\b', '[lokasi]', q_clean)
-        q_clean = re.sub(r'\b(toko|merchant|penyedia)\s+[a-z]+\b', '[nama toko]', q_clean)
+        q_clean = re.sub(r'\b(toko|merchant|penyedia)\s+[a-z]+\b', q_clean)
         q_clean = re.sub(r'\bterima\s+kasih\b', '', q_clean)
         q_clean = re.sub(r'\bmin\b|kak\b|admin\b|pak\b|bu\b', '', q_clean)
         cleaned_questions.append(q_clean.strip())
@@ -749,6 +749,7 @@ if __name__ == '__main__':
     df_merged = merge_similar_topics(df_result, use_embeddings=True)
     print("\n=== Setelah Merge Similar Topics ===")
     print(df_merged['final_topic'].value_counts())
+
 
 
 
