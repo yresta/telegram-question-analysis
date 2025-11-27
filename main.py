@@ -343,8 +343,19 @@ if 'summary_clusters' not in st.session_state:
 if 'final_results' not in st.session_state:
     st.session_state['final_results'] = None
 
-# Input grup Telegram dan tanggal
-group = st.text_input("Masukkan username atau ID grup Telegram:", "@contohgroup")
+# Input parameter
+group_options = {
+    "Siplah Tokoladang": "@siplahtokoladang",
+    "Toko Ladang (Toko Daring LKPP)": "@tokoladang"
+}
+
+with st.container():
+    selected_group_label = st.segmented_control(
+        "Pilih grup Telegram untuk di-scrape:",
+        options=list(group_options.keys()),
+        default=list(group_options.keys())[0]
+    )
+group = group_options[selected_group_label]
 today = datetime.now(wib).date()
 week_ago = today - timedelta(days=7)
 col1, col2 = st.columns(2)
@@ -846,4 +857,5 @@ if st.session_state['df_questions'] is not None:
                     file_name=f"hasil_representatif_variasi_{datetime.now(wib).strftime('%Y-%m-%d')}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
+
 
