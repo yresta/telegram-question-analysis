@@ -556,157 +556,157 @@ def find_question_variations(questions: List[str], min_variation_size: int = 3) 
 
     return filtered_variations
 
-# def generate_representative(questions: List[str]) -> str:
-#     if not questions:
-#         return ""
+def generate_representative(questions: List[str]) -> str:
+    if not questions:
+        return ""
 
-#     API_URL = "https://cloudiessky-Phi-4-mini-instruct-model.hf.space/api/predict"
-#     headers = {"Content-Type": "application/json"}
+    API_URL = "https://cloudiessky-Phi-4-mini-instruct-model.hf.space/api/predict"
+    headers = {"Content-Type": "application/json"}
 
-#     sample_questions = questions[:8]
+    sample_questions = questions[:8]
 
-#     # Preprocessing untuk menghilangkan informasi sensitif
-#     cleaned_questions = []
-#     for q in sample_questions:
-#         # Hapus nomor PO, ID transaksi, dll.
-#         q_clean = re.sub(r'\bpo[0-9a-f]{5,}\b', '[nomor_pesanan]', q.lower(), flags=re.IGNORECASE)
-#         q_clean = re.sub(r'\b\d{6,}\b', '[angka]', q_clean)
-#         q_clean = re.sub(r'\bpo[a-z0-9]+\b', '[nomor pesanan]', q.lower())
-#         q_clean = re.sub(r'\b[a-z0-9]{8,}\b', '[ID]', q_clean)
-#         q_clean = re.sub(r'\b(kalimantan timur|jakarta|surabaya|dll)\b', '[lokasi]', q_clean)
-#         q_clean = re.sub(r'\b(toko|merchant|penyedia)\s+[a-z]+\b', '[nama toko]', q_clean)
-#         q_clean = re.sub(r'\bterima\s+kasih\b', '', q_clean)
-#         q_clean = re.sub(r'\bmin\b|kak\b|admin\b|pak\b|bu\b', '', q_clean)
-#         cleaned_questions.append(q_clean.strip())
+    # Preprocessing untuk menghilangkan informasi sensitif
+    cleaned_questions = []
+    for q in sample_questions:
+        # Hapus nomor PO, ID transaksi, dll.
+        q_clean = re.sub(r'\bpo[0-9a-f]{5,}\b', '[nomor_pesanan]', q.lower(), flags=re.IGNORECASE)
+        q_clean = re.sub(r'\b\d{6,}\b', '[angka]', q_clean)
+        q_clean = re.sub(r'\bpo[a-z0-9]+\b', '[nomor pesanan]', q.lower())
+        q_clean = re.sub(r'\b[a-z0-9]{8,}\b', '[ID]', q_clean)
+        q_clean = re.sub(r'\b(kalimantan timur|jakarta|surabaya|dll)\b', '[lokasi]', q_clean)
+        q_clean = re.sub(r'\b(toko|merchant|penyedia)\s+[a-z]+\b', '[nama toko]', q_clean)
+        q_clean = re.sub(r'\bterima\s+kasih\b', '', q_clean)
+        q_clean = re.sub(r'\bmin\b|kak\b|admin\b|pak\b|bu\b', '', q_clean)
+        cleaned_questions.append(q_clean.strip())
 
-#     prompt = f"""
-# Anda adalah model yang bertugas membuat SATU kalimat tanya representatif.
+    prompt = f"""
+Anda adalah model yang bertugas membuat SATU kalimat tanya representatif.
 
-# KETENTUAN:
-# 1. Kalimat HARUS berasal dari pola pertanyaan pengguna. Dilarang menambahkan konteks baru.
-# 2. TIDAK boleh menebak hal yang tidak ada di data.
-# 3. Hanya gunakan pola yang PALING DOMINAN dari seluruh contoh.
-# 4. Jangan menyimpulkan lokasi, wilayah, atau data sensitif.
-# 5. Gunakan bahasa formal, satu kalimat, dan harus diakhiri tanda tanya.
+KETENTUAN:
+1. Kalimat HARUS berasal dari pola pertanyaan pengguna. Dilarang menambahkan konteks baru.
+2. TIDAK boleh menebak hal yang tidak ada di data.
+3. Hanya gunakan pola yang PALING DOMINAN dari seluruh contoh.
+4. Jangan menyimpulkan lokasi, wilayah, atau data sensitif.
+5. Gunakan bahasa formal, satu kalimat, dan harus diakhiri tanda tanya.
 
-# TUGAS:
-# Buat SATU kalimat tanya yang mewakili inti dari pertanyaan berikut:
-# Pertanyaan Pengguna:
-# - "{cleaned_questions[0]}"
-# - "{cleaned_questions[1] if len(cleaned_questions) > 1 else '...'}"
-# - "{cleaned_questions[2] if len(cleaned_questions) > 2 else '...'}"
+TUGAS:
+Buat SATU kalimat tanya yang mewakili inti dari pertanyaan berikut:
+Pertanyaan Pengguna:
+- "{cleaned_questions[0]}"
+- "{cleaned_questions[1] if len(cleaned_questions) > 1 else '...'}"
+- "{cleaned_questions[2] if len(cleaned_questions) > 2 else '...'}"
 
-# Kalimat Tanya Representatif:
-# """
+Kalimat Tanya Representatif:
+"""
 
-#     payload = {
-#         "prompt": prompt,
-#         "max_new_tokens": 50,
-#         "temperature": 1e-5,
-#         "do_sample": False
-#     }
+    payload = {
+        "prompt": prompt,
+        "max_new_tokens": 50,
+        "temperature": 1e-5,
+        "do_sample": False
+    }
 
-#     try:
-#         response = requests.post(API_URL, headers=headers, json=payload)
-#         response.raise_for_status()
-#         result = response.json()
-#         representative_sentence = result["response"].strip()
+    try:
+        response = requests.post(API_URL, headers=headers, json=payload)
+        response.raise_for_status()
+        result = response.json()
+        representative_sentence = result["response"].strip()
 
-#         prefixes_to_remove = ["Kalimat Tanya Representatif:", "Representatif:", "Jawaban:", "Answer:", "Pertanyaan:", "Contoh:"]
-#         for pref in prefixes_to_remove:
-#             if representative_sentence.lower().startswith(pref.lower()):
-#                 representative_sentence = representative_sentence[len(pref):].strip()
+        prefixes_to_remove = ["Kalimat Tanya Representatif:", "Representatif:", "Jawaban:", "Answer:", "Pertanyaan:", "Contoh:"]
+        for pref in prefixes_to_remove:
+            if representative_sentence.lower().startswith(pref.lower()):
+                representative_sentence = representative_sentence[len(pref):].strip()
 
-#         representative_sentence = re.sub(r'\?[\s\-]*\?+$', '?', representative_sentence)
-#         representative_sentence = re.sub(r'^[\d\.\-\*\s"]+', '', representative_sentence).strip()
-#         representative_sentence = re.sub(r'\b(terima\s+kasih|mohon\s+maaf|tolong|info)\b', '', representative_sentence, flags=re.IGNORECASE)
+        representative_sentence = re.sub(r'\?[\s\-]*\?+$', '?', representative_sentence)
+        representative_sentence = re.sub(r'^[\d\.\-\*\s"]+', '', representative_sentence).strip()
+        representative_sentence = re.sub(r'\b(terima\s+kasih|mohon\s+maaf|tolong|info)\b', '', representative_sentence, flags=re.IGNORECASE)
 
-#         # Pastikan hanya ada satu kalimat pertanyaan
-#         if '?' in representative_sentence:
-#             parts = representative_sentence.split('?')
-#             if len(parts) > 1:
-#                 representative_sentence = parts[0] + '?'
+        # Pastikan hanya ada satu kalimat pertanyaan
+        if '?' in representative_sentence:
+            parts = representative_sentence.split('?')
+            if len(parts) > 1:
+                representative_sentence = parts[0] + '?'
 
-#         representative_sentence = re.sub(r'\s+', ' ', representative_sentence).strip()
-#         rep = representative_sentence.lower().strip()
+        representative_sentence = re.sub(r'\s+', ' ', representative_sentence).strip()
+        rep = representative_sentence.lower().strip()
 
-#         # Logika tambahan: jika terdapat kata "cara", maka awalannya harus "Bagaimana cara"
-#         if "cara" in representative_sentence.lower():
-#             if not representative_sentence.lower().startswith("bagaimana cara"):
-#                 representative_sentence = re.sub(
-#                     r'^(bagaimana|gimana|gmna|gmn|mengapa|kenapa)\s+', 
-#                     '', 
-#                     representative_sentence, 
-#                     flags=re.IGNORECASE
-#                 ).strip()
-#                 representative_sentence = "Bagaimana cara " + representative_sentence
+        # Logika tambahan: jika terdapat kata "cara", maka awalannya harus "Bagaimana cara"
+        if "cara" in representative_sentence.lower():
+            if not representative_sentence.lower().startswith("bagaimana cara"):
+                representative_sentence = re.sub(
+                    r'^(bagaimana|gimana|gmna|gmn|mengapa|kenapa)\s+', 
+                    '', 
+                    representative_sentence, 
+                    flags=re.IGNORECASE
+                ).strip()
+                representative_sentence = "Bagaimana cara " + representative_sentence
 
-#         if representative_sentence:
-#             representative_sentence = representative_sentence[0].upper() + representative_sentence[1:]
+        if representative_sentence:
+            representative_sentence = representative_sentence[0].upper() + representative_sentence[1:]
 
-#         if not representative_sentence.endswith('?'):
-#             representative_sentence += '?'
+        if not representative_sentence.endswith('?'):
+            representative_sentence += '?'
 
-#         # Jika hasil AI masih jelek, gunakan fallback cerdas
-#         if len(representative_sentence) < 15 or "contoh" in representative_sentence.lower() or "pertanyaan" in representative_sentence.lower():
-#             print("Hasil AI tidak memuaskan, menggunakan fallback cerdas...")
-#             return smart_embedding_fallback(questions)
+        # Jika hasil AI masih jelek, gunakan fallback cerdas
+        if len(representative_sentence) < 15 or "contoh" in representative_sentence.lower() or "pertanyaan" in representative_sentence.lower():
+            print("Hasil AI tidak memuaskan, menggunakan fallback cerdas...")
+            return smart_embedding_fallback(questions)
 
-#         return representative_sentence
+        return representative_sentence
 
-#     except Exception as e:
-#         print(f"Error during API call: {e}. Menggunakan fallback cerdas.")
-#         return smart_embedding_fallback(questions)
+    except Exception as e:
+        print(f"Error during API call: {e}. Menggunakan fallback cerdas.")
+        return smart_embedding_fallback(questions)
 
-# def smart_embedding_fallback(questions: List[str]) -> str:
-#     if not questions:
-#         return ""
-#     try:
-#         sentence_model = get_sentence_model()
+def smart_embedding_fallback(questions: List[str]) -> str:
+    if not questions:
+        return ""
+    try:
+        sentence_model = get_sentence_model()
 
-#         # Preprocessing untuk menghilangkan informasi sensitif
-#         cleaned_questions = []
-#         for q in sample_questions:
-#             # Hapus nomor PO, ID transaksi, dll.
-#             q_clean = re.sub(r'\bpo[a-z0-9]+\b', '[nomor pesanan]', q.lower())
-#             q_clean = re.sub(r'\b[a-z0-9]{8,}\b', '[ID]', q_clean)
-#             q_clean = re.sub(r'\b(kalimantan timur|jakarta|surabaya|dll)\b', '[lokasi]', q_clean)
-#             q_clean = re.sub(r'\b(toko|merchant|penyedia)\s+[a-z]+\b', '[nama toko]', q_clean)
-#             q_clean = re.sub(r'\bterima\s+kasih\b', '', q_clean)
-#             q_clean = re.sub(r'\bmin\b|kak\b|admin\b|pak\b|bu\b', '', q_clean)
-#             cleaned_questions.append(q_clean.strip())
+        # Preprocessing untuk menghilangkan informasi sensitif
+        cleaned_questions = []
+        for q in sample_questions:
+            # Hapus nomor PO, ID transaksi, dll.
+            q_clean = re.sub(r'\bpo[a-z0-9]+\b', '[nomor pesanan]', q.lower())
+            q_clean = re.sub(r'\b[a-z0-9]{8,}\b', '[ID]', q_clean)
+            q_clean = re.sub(r'\b(kalimantan timur|jakarta|surabaya|dll)\b', '[lokasi]', q_clean)
+            q_clean = re.sub(r'\b(toko|merchant|penyedia)\s+[a-z]+\b', '[nama toko]', q_clean)
+            q_clean = re.sub(r'\bterima\s+kasih\b', '', q_clean)
+            q_clean = re.sub(r'\bmin\b|kak\b|admin\b|pak\b|bu\b', '', q_clean)
+            cleaned_questions.append(q_clean.strip())
 
 
-#         embeddings = sentence_model.encode(cleaned_questions, convert_to_tensor=True)
-#         centroid = embeddings.mean(dim=0)
-#         cosine_scores = util.cos_sim(centroid, embeddings)
+        embeddings = sentence_model.encode(cleaned_questions, convert_to_tensor=True)
+        centroid = embeddings.mean(dim=0)
+        cosine_scores = util.cos_sim(centroid, embeddings)
 
-#         most_similar_idx = cosine_scores.argmax().item()
-#         most_representative_question = cleaned_questions[most_similar_idx]
+        most_similar_idx = cosine_scores.argmax().item()
+        most_representative_question = cleaned_questions[most_similar_idx]
 
-#         rephrased = most_representative_question.strip().lower()
-#         rephrased = re.sub(r'\b(gimana|gmn|bagaimana cara)\b', 'Bagaimana cara', rephrased)
-#         rephrased = re.sub(r'\b(knp|kenapa)\b', 'Mengapa', rephrased)
-#         rephrased = re.sub(r'\b(kak|min|admin|pak|bu)\b', '', rephrased) 
-#         rephrased = re.sub(r'\s+', ' ', rephrased).strip()
+        rephrased = most_representative_question.strip().lower()
+        rephrased = re.sub(r'\b(gimana|gmn|bagaimana cara)\b', 'Bagaimana cara', rephrased)
+        rephrased = re.sub(r'\b(knp|kenapa)\b', 'Mengapa', rephrased)
+        rephrased = re.sub(r'\b(kak|min|admin|pak|bu)\b', '', rephrased) 
+        rephrased = re.sub(r'\s+', ' ', rephrased).strip()
 
-#         # Pastikan hanya ada satu kalimat pertanyaan
-#         if '?' in rephrased:
-#             parts = rephrased.split('?')
-#             if len(parts) > 1:
-#                 rephrased = parts[0] + '?'
+        # Pastikan hanya ada satu kalimat pertanyaan
+        if '?' in rephrased:
+            parts = rephrased.split('?')
+            if len(parts) > 1:
+                rephrased = parts[0] + '?'
 
-#         if rephrased:
-#             rephrased = rephrased[0].upper() + rephrased[1:]
+        if rephrased:
+            rephrased = rephrased[0].upper() + rephrased[1:]
 
-#         if not rephrased.endswith('?'):
-#             rephrased += '?'
+        if not rephrased.endswith('?'):
+            rephrased += '?'
 
-#         return rephrased
+        return rephrased
 
-#     except Exception as e:
-#         print(f"Fallback cerdas juga gagal: {e}. Menggunakan fallback generik.")
-#         return "Apa solusi untuk masalah yang dialami?"
+    except Exception as e:
+        print(f"Fallback cerdas juga gagal: {e}. Menggunakan fallback generik.")
+        return "Apa solusi untuk masalah yang dialami?"
 # =================
 
 # def clean_question(q: str) -> str:
@@ -859,340 +859,6 @@ def find_question_variations(questions: List[str], min_variation_size: int = 3) 
 #         print(f"Fallback cerdas juga gagal: {e}. Menggunakan fallback generik.")
 #         return "Apa solusi untuk masalah yang dialami?"
 
-def clean_question(q: str) -> str:
-    if not q or not isinstance(q, str):
-        return ""
-    
-    q_clean = q.lower().strip()
-    
-    # Hapus informasi sensitif
-    q_clean = re.sub(r'\bpo[0-9a-f]{5,}\b', '[nomor_pesanan]', q_clean, flags=re.IGNORECASE)
-    q_clean = re.sub(r'\b\d{6,}\b', '[angka]', q_clean)
-    q_clean = re.sub(r'\b[a-z0-9]{8,}\b', '[ID]', q_clean)
-    q_clean = re.sub(r'\b(kalimantan timur|jakarta|surabaya|bandung|medan|semarang|surakarta|makassar|denpasar|balikpapan|batam|tangerang|bekasi|depok|bogor|cirebon|pekanbaru|pontianak|banjarmasin|manado|palembang|denpasar)\b', '[lokasi]', q_clean, flags=re.IGNORECASE)
-    q_clean = re.sub(r'\b(toko|merchant|penyedia|lapak)\s+[a-z]+\b', '[nama toko]', q_clean, flags=re.IGNORECASE)
-    q_clean = re.sub(r'\bterima\s+kasih\b|\bmin\b|\bkak\b|\badmin\b|\bpak\b|\bbu\b|\banda\b|\bkamu\b|\bsaudara\b|\bsaudari\b', '', q_clean, flags=re.IGNORECASE)
-    q_clean = re.sub(r'\s+', ' ', q_clean).strip()
-    
-    return q_clean
-
-def find_optimal_clusters_varians(texts: List[str], min_k: int = 2, max_k: int = 10) -> int:
-    if not texts or len(texts) < 2:
-        return 1
-        
-    if len(texts) == 2:
-        return 1
-    
-    try:
-        X = get_sentence_embeddings(texts)
-        
-        # Handle jika embedding gagal
-        if X is None or len(X) == 0:
-            return 1
-            
-        best_k, best_score = 1, -1
-        max_k = min(max_k, len(texts))
-        
-        # Pastikan min_k tidak melebihi jumlah data
-        min_k = min(min_k, len(texts))
-        if min_k < 2:
-            return 1
-            
-        # Cek apakah cukup data untuk clustering
-        if len(texts) < min_k:
-            return 1
-        
-        for k in range(min_k, min(max_k + 1, len(texts) + 1)):
-            try:
-                # Untuk dataset kecil, gunakan KMeans biasa
-                if len(texts) < 1000:
-                    labels = KMeans(n_clusters=k, random_state=0, n_init=10).fit_predict(X)
-                else:
-                    labels = MiniBatchKMeans(n_clusters=k, random_state=0, n_init=5).fit_predict(X)
-                
-                # Pastikan ada lebih dari 1 cluster
-                if len(set(labels)) <= 1:
-                    continue
-                    
-                score = silhouette_score(X, labels)
-                
-                # Validasi score
-                if not np.isnan(score) and score > best_score:
-                    best_k, best_score = k, score
-                    
-            except Exception as e:
-                continue
-                
-        return best_k if best_score > 0 else 1
-        
-    except Exception as e:
-        print(f"Error in find_optimal_clusters: {e}")
-        return 1
-
-def find_question_variations(questions: List[str], min_variation_size: int = MIN_CLUSTER_SIZE) -> List[List[str]]:
-    if not questions or len(questions) < min_variation_size * 2:
-        return [questions]
-
-    try:
-        cleaned_questions = [clean_question(q) for q in questions if q and isinstance(q, str)]
-        cleaned_questions = [q for q in cleaned_questions if q and len(q) > 5]
-        
-        if len(cleaned_questions) < min_variation_size:
-            return [questions]
-        
-        optimal_k = find_optimal_clusters_varians(cleaned_questions, min_k=2, max_k=min(8, len(cleaned_questions)))
-        
-        if optimal_k <= 1 or len(cleaned_questions) < min_variation_size * 2:
-            return [questions]
-
-        X = get_sentence_embeddings(cleaned_questions)
-        if X is None:
-            return [questions]
-        
-        # Perform clustering dengan optimal_k
-        if len(cleaned_questions) < 1000:
-            kmeans = KMeans(n_clusters=optimal_k, random_state=0, n_init=10)
-        else:
-            kmeans = MiniBatchKMeans(n_clusters=optimal_k, random_state=0, n_init=5)
-            
-        cluster_labels = kmeans.fit_predict(X)
-        
-        # Group questions by cluster
-        clusters = {}
-        # Buat mapping dari cleaned ke original
-        cleaned_to_original = {}
-        for orig, clean in zip(questions, [clean_question(q) for q in questions]):
-            if clean and clean in cleaned_questions:
-                if clean not in cleaned_to_original:
-                    cleaned_to_original[clean] = []
-                cleaned_to_original[clean].append(orig)
-        
-        for i, label in enumerate(cluster_labels):
-            if label not in clusters:
-                clusters[label] = []
-            
-            if i < len(cleaned_questions):
-                clean_q = cleaned_questions[i]
-                # Gunakan pertanyaan asli
-                original_questions = cleaned_to_original.get(clean_q, [clean_q])
-                clusters[label].extend(original_questions)
-        
-        # Filter clusters yang memenuhi ukuran minimum
-        filtered_variations = [list(set(cluster_questions)) for cluster_questions in clusters.values() 
-                             if len(cluster_questions) >= min_variation_size]
-        
-        # Jika tidak ada cluster yang memenuhi syarat, kembalikan semua pertanyaan
-        if not filtered_variations:
-            return [questions]
-        
-        return filtered_variations
-        
-    except Exception as e:
-        print(f"Error in clustering: {e}")
-        return [questions]
-
-def generate_representative(questions: List[str]) -> str:
-    if not questions:
-        return ""
-
-    API_URL = "https://cloudiessky-Phi-4-mini-instruct-model.hf.space/api/predict"
-    headers = {"Content-Type": "application/json"}
-
-    # Gunakan semua pertanyaan
-    sample_questions = questions
-
-    # Preprocessing untuk menghilangkan informasi sensitif
-    cleaned_questions = [clean_question(q) for q in sample_questions]
-    cleaned_questions = [q for q in cleaned_questions if q and len(q) > 3]  # Filter yang terlalu pendek
-    
-    if not cleaned_questions:
-        return "Apa solusi untuk masalah yang dialami?"
-
-    # Buat daftar pertanyaan untuk prompt (batasi untuk tidak overload)
-    pertanyaan_list = "\n- ".join([f'"{q}"' for q in cleaned_questions[:15]])
-
-    prompt = f"""
-Anda adalah model yang bertugas membuat SATU kalimat tanya representatif.
-
-KETENTUAN:
-1. Kalimat HARUS berasal dari pola pertanyaan pengguna. Dilarang menambahkan konteks baru.
-2. TIDAK boleh menebak hal yang tidak ada di data.
-3. Hanya gunakan pola yang PALING DOMINAN dari seluruh contoh.
-4. Jangan menyimpulkan lokasi, wilayah, atau data sensitif.
-5. Gunakan bahasa formal, satu kalimat, dan harus diakhiri tanda tanya.
-6. JANGAN menyebut kata "Anda", "kamu", "saudara", atau bentuk alamat pribadi lainnya.
-
-Contoh Kalimat Representatif yang Benar:
-- Apakah status pesanan masih belum berubah setelah pembayaran?
-- Bagaimana cara mengubah data toko?
-- Apakah ada kendala dengan tokla?
-- Kapan dana akan masuk ke rekening penjual?
-- Mengapa tidak bisa login ke sistem?
-
-TUGAS:
-Buat SATU kalimat tanya yang mewakili inti dari pertanyaan berikut:
-Pertanyaan Pengguna:
-- {pertanyaan_list}
-
-Kalimat Tanya Representatif (HANYA SATU KALIMAT, TANPA PREFIX):
-"""
-
-    payload = {
-        "prompt": prompt,
-        "max_new_tokens": 60,
-        "temperature": 1e-5,
-        "do_sample": False
-    }
-
-    try:
-        response = requests.post(API_URL, headers=headers, json=payload, timeout=30)
-        response.raise_for_status()
-        result = response.json()
-        representative_sentence = result["response"].strip()
-
-        prefixes_to_remove = [
-            "Kalimat Tanya Representatif:", "Representatif:", "Jawaban:", "Answer:", 
-            "Pertanyaan:", "Contoh:", "Kalimat:", "Representatif", "Jawab:"
-        ]
-        for pref in prefixes_to_remove:
-            if representative_sentence.lower().startswith(pref.lower()):
-                representative_sentence = representative_sentence[len(pref):].strip()
-
-        # Bersihkan karakter tidak diinginkan
-        representative_sentence = re.sub(r'\?[\s\-]*\?+$', '?', representative_sentence)
-        representative_sentence = re.sub(r'^[\d\.\-\*\s"]+', '', representative_sentence).strip()
-        representative_sentence = re.sub(r'\b(terima\s+kasih|mohon\s+maaf|tolong|info|anda|kamu|saudara|saudari)\b', '', representative_sentence, flags=re.IGNORECASE)
-
-        # Pastikan hanya ada satu kalimat pertanyaan
-        if '?' in representative_sentence:
-            parts = representative_sentence.split('?')
-            representative_sentence = parts[0] + '?'
-
-        representative_sentence = re.sub(r'\s+', ' ', representative_sentence).strip()
-
-        # Logika tambahan untuk kata "cara"
-        if "cara" in representative_sentence.lower():
-            if not representative_sentence.lower().startswith("bagaimana cara"):
-                representative_sentence = re.sub(
-                    r'^(bagaimana|gimana|gmna|gmn|mengapa|kenapa|apa|dimana|kapan|bagaimana|bagaimna)\s+', 
-                    '', 
-                    representative_sentence, 
-                    flags=re.IGNORECASE
-                ).strip()
-                if representative_sentence and not representative_sentence.lower().startswith("bagaimana cara"):
-                    representative_sentence = "Bagaimana cara " + representative_sentence
-
-        # Format huruf kapital dan tanda tanya
-        if representative_sentence:
-            representative_sentence = representative_sentence[0].upper() + representative_sentence[1:]
-
-        if not representative_sentence.endswith('?'):
-            representative_sentence += '?'
-
-        # Validasi hasil AI
-        if (len(representative_sentence) < 10 or 
-            "contoh" in representative_sentence.lower() or 
-            "pertanyaan" in representative_sentence.lower() or
-            "kalimat" in representative_sentence.lower() or
-            representative_sentence.count('?') > 1):
-            print("Hasil AI tidak memuaskan, menggunakan fallback cerdas...")
-            return smart_embedding_fallback(questions)
-
-        return representative_sentence.strip()
-
-    except Exception as e:
-        print(f"Error during API call: {e}. Menggunakan fallback cerdas.")
-        return smart_embedding_fallback(questions)
-
-def smart_embedding_fallback(questions: List[str]) -> str:
-    if not questions:
-        return "Apa solusi untuk masalah yang dialami?"
-    
-    try:
-        sentence_model = get_sentence_model()
-
-        # Preprocessing untuk menghilangkan informasi sensitif
-        cleaned_questions = [clean_question(q) for q in questions]
-        cleaned_questions = [q for q in cleaned_questions if q and len(q) > 3]
-        
-        if not cleaned_questions:
-            return "Apa solusi untuk masalah yang dialami?"
-
-        embeddings = sentence_model.encode(cleaned_questions, convert_to_tensor=True)
-        centroid = embeddings.mean(dim=0)
-        cosine_scores = util.cos_sim(centroid, embeddings)
-
-        most_similar_idx = cosine_scores.argmax().item()
-        most_representative_question = cleaned_questions[most_similar_idx]
-
-        rephrased = most_representative_question.strip().lower()
-        
-        rephrased = re.sub(r'\b(min|kak|admin|pak|bu|anda|kamu|saudara|saudari)\b', '', rephrased, flags=re.IGNORECASE)
-        rephrased = re.sub(r'\b(gimana|gmn|bagaimana cara|bagaimna cara)\b', 'Bagaimana cara', rephrased)
-        rephrased = re.sub(r'\b(knp|kenapa|knapa)\b', 'Mengapa', rephrased)
-        rephrased = re.sub(r'\b(apa|dimana|kapan|bagaimana|kenapa|mengapa)\s+(sih|ya|tidak|gak|ga|tidak ya|ya min|ya kak|ya admin)\b', r'\1', rephrased, flags=re.IGNORECASE)
-        rephrased = re.sub(r'\s+', ' ', rephrased).strip()
-        rephrased = re.sub(r'^\W+|\W+$', '', rephrased)  # Hapus karakter di awal/akhir
-
-        # Pastikan hanya ada satu kalimat pertanyaan
-        if '?' in rephrased:
-            parts = rephrased.split('?')
-            rephrased = parts[0] + '?'
-
-        # Format akhir
-        if rephrased:
-            # Pastikan dimulai dengan kata tanya yang tepat
-            question_words = ['apa', 'bagaimana', 'mengapa', 'kenapa', 'dimana', 'kapan', 'berapa', 'siapa']
-            starts_with_question = any(rephrased.lower().startswith(word) for word in question_words)
-            
-            if not starts_with_question:
-                if 'cara' in rephrased:
-                    rephrased = 'Bagaimana cara ' + rephrased
-                elif 'kenapa' in rephrased or 'mengapa' in rephrased:
-                    rephrased = re.sub(r'^(kenapa|mengapa)\s+', '', rephrased, flags=re.IGNORECASE)
-                    rephrased = 'Mengapa ' + rephrased
-                else:
-                    rephrased = 'Apa ' + rephrased
-            
-            rephrased = rephrased[0].upper() + rephrased[1:] if len(rephrased) > 1 else rephrased.upper()
-
-        if not rephrased.endswith('?'):
-            rephrased += '?'
-
-        return rephrased.strip() if rephrased else "Apa solusi untuk masalah yang dialami?"
-
-    except Exception as e:
-        print(f"Fallback cerdas juga gagal: {e}. Menggunakan fallback generik.")
-        return "Apa solusi untuk masalah yang dialami?"
-
-def process_topic_variations(df: pd.DataFrame, 
-                           topik_keywords: Dict[str, Any],
-                           spelling_corrections: Dict[str, str] = None,
-                           min_cluster_size: int = MIN_CLUSTER_SIZE,
-                           max_recursive_depth: int = MAX_RECURSIVE_DEPTH,
-                           num_auto_clusters: int = 15) -> Tuple[pd.DataFrame, Dict[str, List[str]], Dict[str, str]]:
-
-    categorized_df, new_topics, num_new_topics = integrate_clustering_with_keywords(
-        df, topik_keywords, spelling_corrections, min_cluster_size, max_recursive_depth, num_auto_clusters
-    )
-    
-    # Group pertanyaan berdasarkan topik
-    topic_groups = {}
-    for topic in categorized_df['final_topic'].unique():
-        topic_questions = categorized_df[categorized_df['final_topic'] == topic]['text'].tolist()
-        if topic_questions:
-            topic_groups[topic] = topic_questions
-    
-    # Generate kalimat representatif untuk setiap topik
-    representative_sentences = {}
-    for topic, questions in topic_groups.items():
-        if len(questions) >= min_cluster_size:
-            representative_sentences[topic] = generate_representative(questions)
-        else:
-            representative_sentences[topic] = "Apa solusi untuk masalah yang dialami?"
-    
-    return categorized_df, topic_groups, representative_sentences
-
 # Run
 if __name__ == '__main__':
     sample_data = {
@@ -1248,6 +914,7 @@ if __name__ == '__main__':
     df_merged = merge_similar_topics(df_result, use_embeddings=True)
     print("\n=== Setelah Merge Similar Topics ===")
     print(df_merged['final_topic'].value_counts())
+
 
 
 
