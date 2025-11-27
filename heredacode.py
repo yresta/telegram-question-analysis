@@ -539,22 +539,22 @@ def merge_similar_topics(df: pd.DataFrame, sim_threshold: float = 0.75, min_topi
     df["final_topic"] = df["final_topic"].replace({"": "Lainnya", "None": "Lainnya"})
     return df
 
-# def find_question_variations(questions: List[str], min_variation_size: int = 3) -> List[List[str]]:
-#     if not questions or len(questions) < min_variation_size * 2:
-#         return [questions]
+def find_question_variations(questions: List[str], min_variation_size: int = 3) -> List[List[str]]:
+    if not questions or len(questions) < min_variation_size * 2:
+        return [questions]
 
-#     variations = recursive_clustering(
-#         texts=questions,
-#         min_cluster_size=min_variation_size,
-#         max_depth=2
-#     )
+    variations = recursive_clustering(
+        texts=questions,
+        min_cluster_size=min_variation_size,
+        max_depth=2
+    )
 
-#     filtered_variations = [v for v in variations if len(v) >= min_variation_size]
+    filtered_variations = [v for v in variations if len(v) >= min_variation_size]
 
-#     if not filtered_variations:
-#         return [questions]
+    if not filtered_variations:
+        return [questions]
 
-#     return filtered_variations
+    return filtered_variations
 
 # def generate_representative(questions: List[str]) -> str:
 #     if not questions:
@@ -914,6 +914,7 @@ if __name__ == '__main__':
     df_merged = merge_similar_topics(df_result, use_embeddings=True)
     print("\n=== Setelah Merge Similar Topics ===")
     print(df_merged['final_topic'].value_counts())
+
 
 
 
