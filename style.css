@@ -122,6 +122,97 @@ div[data-testid="stRadio"] label div[role="radio"][aria-checked="true"]::after {
     background-color: #E07D45; /* Marmalade */
 }
 
+/*Styling Segmented Control*/
+
+/* Hapus limit width dari label Streamlit */
+label[data-testid="stWidgetLabel"] {
+    max-width: none !important;
+    width: 100% !important;
+    display: block !important;
+}
+
+/* Hapus overlay BaseWeb */
+div[role="radiogroup"]::after,
+div[role="radiogroup"]::before {
+    content: none !important;
+    display: none !important;
+}
+
+/* Buat segmented control full width */
+div[data-testid="stButtonGroup"] {
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+div[data-testid="stButtonGroup"] > div[role="radiogroup"] {
+    display: flex !important;
+    width: 100% !important;
+    flex: 1 !important;
+}
+
+/* Tombol segmented */
+button[kind="segmented_control"],
+button[kind="segmented_controlActive"] {
+    flex: 1 !important;
+    min-width: 0 !important;
+    min-height: 40px !important;
+    padding: 8px 0 !important;
+    border-radius: 0 !important;
+}
+
+/* Radius kiri/kanan */
+button[kind="segmented_control"]:first-child,
+button[kind="segmented_controlActive"]:first-child {
+    border-top-left-radius: 8px !important;
+    border-bottom-left-radius: 8px !important;
+}
+
+button[kind="segmented_control"]:last-child,
+button[kind="segmented_controlActive"]:last-child {
+    border-top-right-radius: 8px !important;
+    border-bottom-right-radius: 8px !important;
+}
+
+/* Tombol aktif */
+button[kind="segmented_controlActive"] {
+    background-color: rgba(224, 125, 69, 0.25) !important;  /* 25% opacity */
+    border-color: rgba(224, 125, 69, 0.55) !important;      /* border tetap tegas sedikit */
+    color: #E07D45 !important;                              /* teks marmalade, bukan putih */
+    font-weight: 700 !important;
+}
+
+/* Left rounded */
+button[kind="segmented_control"]:first-child,
+button[kind="segmented_controlActive"]:first-child {
+    border-top-left-radius: 12px !important;
+    border-bottom-left-radius: 12px !important;
+}
+
+/* Right rounded */
+button[kind="segmented_control"]:last-child,
+button[kind="segmented_controlActive"]:last-child {
+    border-top-right-radius: 12px !important;
+    border-bottom-right-radius: 12px !important;
+}
+
+button[kind^="segmented_control"] {
+    border: 1px solid rgba(246, 188, 140, 0.45) !important;
+}
+
+/* Teks jadi bold ketika tombol segmented aktif */
+button[kind="segmented_controlActive"] p,
+button[kind="segmented_controlActive"] div,
+button[kind="segmented_controlActive"] {
+    font-weight: 700 !important;
+}
+
+/* FIX UTAMA: Streamlit memberi width="fit-content" pada container segmented control */
+div[data-testid="stElementContainer"][width="fit-content"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
+}
+
 /* =======================================================================================
    KOMPONEN TOMBOL
    ======================================================================================= */
@@ -312,4 +403,5 @@ div[data-testid="stProgress"] > div > div > div {
 div[data-testid="stProgressBar"] > div > div > div > div {
     background-color: #E07D45 !important; /* Marmalade */
     border-radius: 10px;
+
 }
