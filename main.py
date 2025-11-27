@@ -370,7 +370,6 @@ end_dt   = datetime.combine(end_date_scrape, time.max).astimezone(wib)
 
 # Fungsi pendukung
 def is_question_like(text: str) -> bool:
-    """Deteksi apakah teks valid pertanyaan dengan filter ketat."""
     if pd.isna(text) or not isinstance(text, str):
         return False
 
@@ -857,5 +856,6 @@ if st.session_state['df_questions'] is not None:
                     file_name=f"hasil_representatif_variasi_{datetime.now(wib).strftime('%Y-%m-%d')}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
+
 
 
